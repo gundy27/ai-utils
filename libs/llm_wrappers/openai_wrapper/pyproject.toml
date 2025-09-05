@@ -1,0 +1,61 @@
+[tool.poetry]
+name = "gundy_ai-openai-wrapper"
+version = "0.1.0"
+description = "Secure OpenAI API wrapper with retries, logging, and streaming"
+authors = ["Dan Gunderson <dan@gundy.ai>"]
+readme = "README.md"
+packages = [
+  { include = "gundy_ai", from = "src" },
+]
+license = "MIT"
+homepage = "https://github.com/gundy27/ai-utils"
+repository = "https://github.com/gundy27/ai-utils"
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+openai = "^1.40.0"
+backoff = "^2.2.1"
+python-dotenv = "^1.0.1"
+structlog = "^24.1.0"
+httpx = "^0.27.0"
+typing-extensions = "^4.12.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.2"
+pytest-asyncio = "^0.23.8"
+black = "^24.8.0"
+ruff = "^0.6.2"
+mypy = "^1.11.1"
+
+[build-system]
+requires = ["poetry-core>=1.9.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+select = ["E","F","I","UP","B","SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+show_error_codes = true
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+markers = [
+  "unit: fast unit tests with mocks",
+  "integration: tests requiring network/real keys",
+]
+
+

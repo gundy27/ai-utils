@@ -1,0 +1,17 @@
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: templates/api-service-starter/Dockerfile
+    env_file:
+      - ../api-service-starter/.env
+    restart: unless-stopped
+
+  web:
+    build: .
+    environment:
+      - API_URL=http://api:8001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
