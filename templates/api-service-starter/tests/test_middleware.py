@@ -1,5 +1,5 @@
-import os
 import time
+
 from fastapi.testclient import TestClient
 
 # Import app from the starter

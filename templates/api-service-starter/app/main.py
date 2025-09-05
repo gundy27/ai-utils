@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, Iterable, List, Optional
+import time
+from collections import defaultdict, deque
+from collections.abc import Iterable
 
 import backoff
 import structlog
 from dotenv import load_dotenv
-import time
-from collections import defaultdict, deque
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse, StreamingResponse
-from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
-from openai import APIConnectionError, APIError, RateLimitError, Timeout
 from gundy_ai.llm import OpenAIClient
+from openai import APIConnectionError, APIError, RateLimitError, Timeout
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel, Field
-
 
 logger = structlog.get_logger(__name__)
 load_dotenv(override=False)
@@ -66,7 +65,7 @@ async def logging_middleware(request: Request, call_next):
         )
         REQUEST_COUNT.labels(method=method, path=path, status="500").inc()
         REQUEST_LATENCY.labels(method=method, path=path).observe(
-            (time.time() - start_time)
+            time.time() - start_time
         )
         raise
     duration_ms = int((time.time() - start_time) * 1000)
@@ -78,7 +77,7 @@ async def logging_middleware(request: Request, call_next):
         duration_ms=duration_ms,
     )
     REQUEST_COUNT.labels(method=method, path=path, status=str(status_code)).inc()
-    REQUEST_LATENCY.labels(method=method, path=path).observe((time.time() - start_time))
+    REQUEST_LATENCY.labels(method=method, path=path).observe(time.time() - start_time)
     return response
 
 
@@ -134,11 +133,11 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     model: str = Field(default="gpt-4o-mini")
-    messages: List[Message]
-    temperature: Optional[float] = None
-    top_p: Optional[float] = None
-    max_tokens: Optional[int] = None
-    extra: Optional[Dict[str, object]] = None
+    messages: list[Message]
+    temperature: float | None = None
+    top_p: float | None = None
+    max_tokens: int | None = None
+    extra: dict[str, object] | None = None
 
 
 def _is_retryable(exc: Exception) -> bool:
@@ -151,11 +150,11 @@ def _get_client() -> OpenAIClient:
     try:
         return OpenAIClient()
     except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/health")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
@@ -165,7 +164,7 @@ def metrics() -> PlainTextResponse:
 
 
 @app.post("/chat")
-def chat(req: ChatRequest) -> Dict[str, str]:
+def chat(req: ChatRequest) -> dict[str, str]:
     client = _get_client()
 
     @backoff.on_exception(
@@ -194,7 +193,7 @@ def chat(req: ChatRequest) -> Dict[str, str]:
         raise
     except Exception as e:
         logger.error("api.chat.error", error=str(e))
-        raise HTTPException(status_code=502, detail="Upstream error")
+        raise HTTPException(status_code=502, detail="Upstream error") from e
 
 
 @app.post("/chat/stream")

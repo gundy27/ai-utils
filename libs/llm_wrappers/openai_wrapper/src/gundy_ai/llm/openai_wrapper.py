@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Dict, Generator, Iterable, List, Optional
+from collections.abc import Generator, Iterable
 
 import backoff
 import httpx
@@ -10,11 +10,10 @@ import structlog
 from dotenv import load_dotenv
 from openai import APIConnectionError, APIError, OpenAI, RateLimitError, Timeout
 
-
 logger = structlog.get_logger(__name__)
 
 
-def _mask(value: Optional[str]) -> str:
+def _mask(value: str | None) -> str:
     if not value:
         return ""
     if len(value) <= 8:
@@ -41,9 +40,9 @@ class OpenAIClient:
         if not self.api_key:
             raise RuntimeError("OPENAI_API_KEY is required")
 
-        base_url: Optional[str] = os.environ.get("OPENAI_BASE_URL")
-        organization: Optional[str] = os.environ.get("OPENAI_ORG_ID")
-        project: Optional[str] = os.environ.get("OPENAI_PROJECT_ID")
+        base_url: str | None = os.environ.get("OPENAI_BASE_URL")
+        organization: str | None = os.environ.get("OPENAI_ORG_ID")
+        project: str | None = os.environ.get("OPENAI_PROJECT_ID")
         timeout_seconds: int = int(os.environ.get("OPENAI_TIMEOUT_SECONDS", "60"))
         max_retries: int = int(os.environ.get("OPENAI_MAX_RETRIES", "3"))
 
@@ -74,13 +73,13 @@ class OpenAIClient:
             and (500 <= getattr(exc, "status_code", 500) < 600)
         )
 
-    def _backoff_handler(self, details: Dict[str, object]) -> None:
+    def _backoff_handler(self, details: dict[str, object]) -> None:
         wait = details.get("wait")
         tries = details.get("tries")
         exc = details.get("exception")
         logger.warning("openai_client.retry", tries=tries, wait=wait, error=str(exc))
 
-    def _giveup_handler(self, details: Dict[str, object]) -> None:
+    def _giveup_handler(self, details: dict[str, object]) -> None:
         tries = details.get("tries")
         exc = details.get("exception")
         logger.error("openai_client.giveup", tries=tries, error=str(exc))
@@ -89,11 +88,11 @@ class OpenAIClient:
         self,
         *,
         model: str,
-        messages: List[Dict[str, object]],
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        extra: Optional[Dict[str, object]] = None,
+        messages: list[dict[str, object]],
+        temperature: float | None = None,
+        top_p: float | None = None,
+        max_tokens: int | None = None,
+        extra: dict[str, object] | None = None,
     ) -> str:
         """Non-streaming chat completion returning the full text content.
 
@@ -137,11 +136,11 @@ class OpenAIClient:
         self,
         *,
         model: str,
-        messages: List[Dict[str, object]],
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-        extra: Optional[Dict[str, object]] = None,
+        messages: list[dict[str, object]],
+        temperature: float | None = None,
+        top_p: float | None = None,
+        max_tokens: int | None = None,
+        extra: dict[str, object] | None = None,
     ) -> Iterable[str]:
         """Streaming chat completion yielding text chunks.
 
