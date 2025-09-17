@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "gundy_ai-rest-client"
+version = "0.1.0"
+description = "Reusable HTTP REST client with OAuth2, retries, structured errors, and schema validation."
+authors = ["Dan Gunderson <dangunderson27@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "gundy_ai", from = "src" }]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+httpx = {version = "^0.27.0", extras = ["http2"]}
+backoff = "^2.2.1"
+structlog = "^24.1.0"
+pydantic = "^2.7.0"
+python-dotenv = "^1.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.23.0"
+respx = "^0.21.1"
+ruff = "^0.5.0"
+black = "^24.4.0"
+mypy = "^1.10.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E","F","I","UP","B","PIE","T20"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+
+

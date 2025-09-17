@@ -1,0 +1,8 @@
+This is an example corpus file.
+
+Use this text to test retrieval. The API will embed these paragraphs at startup
+and retrieve the most relevant chunks to include as context in prompts.
+
+You can add multiple files here; each file may contain multiple paragraphs
+separated by blank lines.
+

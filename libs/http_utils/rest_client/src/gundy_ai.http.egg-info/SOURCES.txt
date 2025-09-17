@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+src/gundy_ai.http.egg-info/PKG-INFO
+src/gundy_ai.http.egg-info/SOURCES.txt
+src/gundy_ai.http.egg-info/dependency_links.txt
+src/gundy_ai.http.egg-info/top_level.txt
+src/gundy_ai/http/__init__.py
+src/gundy_ai/http/rest_client.py
