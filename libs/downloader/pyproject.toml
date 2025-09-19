@@ -1,0 +1,73 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "gundy-ai-downloader"
+version = "0.1.0"
+description = "Generic file downloader with support for multiple sources (HTTP, FTP, SFTP, S3, etc.)"
+authors = ["Dan Gunderson <dan@gundy.ai>"]
+readme = "README.md"
+packages = [{include = "gundy_ai", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# Core dependencies
+pydantic = "^2.0.0"
+structlog = "^23.0.0"
+aiofiles = "^23.0.0"
+
+# HTTP/HTTPS downloading
+aiohttp = "^3.9.0"
+httpx = "^0.25.0"
+
+# Cloud storage
+boto3 = "^1.34.0"
+botocore = "^1.34.0"
+
+# FTP/SFTP
+paramiko = "^3.3.0"  # For SFTP
+cryptography = "^41.0.0"
+
+# Retry and rate limiting
+tenacity = "^8.2.0"
+backoff = "^2.2.0"
+aiolimiter = "^1.1.0"
+
+# File handling
+pathlib = "*"
+hashlib = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0.0"
+pytest-asyncio = "^0.21.0"
+pytest-mock = "^3.12.0"
+black = "^23.0.0"
+isort = "^5.12.0"
+mypy = "^1.0.0"
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
+ai-downloader = "gundy_ai.downloader.cli:main"
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "TD", "FIX", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF"]
+ignore = ["S101", "S104", "S108", "S110", "S112", "S311", "S603", "S607"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
