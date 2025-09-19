@@ -4,29 +4,28 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import structlog
 
 from .base import BaseDownloader, DownloadResult
-from .sources import (
-    HTTPSource,
-    FTPSource,
-    SFTPSource,
-    S3Source,
-    LocalFileSource,
-    VendorPortalSource,
-    AnySource,
-)
 from .downloaders import (
-    HTTPDownloader,
     FTPDownloader,
-    SFTPDownloader,
-    S3Downloader,
+    HTTPDownloader,
     LocalFileDownloader,
+    S3Downloader,
+    SFTPDownloader,
 )
-from .rate_limiter import RateLimiter
 from .file_utils import FileUtils
+from .rate_limiter import RateLimiter
+from .sources import (
+    AnySource,
+    FTPSource,
+    HTTPSource,
+    LocalFileSource,
+    S3Source,
+    SFTPSource,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -64,7 +63,7 @@ class UniversalDownloader:
         )
 
         # Initialize individual downloaders
-        self.downloaders: List[BaseDownloader] = [
+        self.downloaders: list[BaseDownloader] = [
             HTTPDownloader(max_retries, timeout_seconds, self.rate_limiter),
             FTPDownloader(max_retries, timeout_seconds),
             SFTPDownloader(max_retries, timeout_seconds),
@@ -108,7 +107,7 @@ class UniversalDownloader:
         if destination is None:
             if self.destination_directory is None:
                 raise ValueError(
-                    "Either destination or destination_directory must be provided"
+                    "Either destination or destination_directory must be provided",
                 )
             destination = self.destination_directory
 
@@ -125,7 +124,8 @@ class UniversalDownloader:
 
         # Get unique filename to avoid conflicts
         destination = await FileUtils.get_unique_filename(
-            destination.parent, destination.name
+            destination.parent,
+            destination.name,
         )
 
         self.logger.info(
@@ -142,7 +142,8 @@ class UniversalDownloader:
                 f"No downloader available for source type: {source.source_type.value}"
             )
             self.logger.error(
-                "download.no_downloader", source_type=source.source_type.value
+                "download.no_downloader",
+                source_type=source.source_type.value,
             )
             return DownloadResult.error_result(error_msg)
 
@@ -171,16 +172,18 @@ class UniversalDownloader:
         except Exception as e:
             error_msg = f"Download failed with exception: {str(e)}"
             self.logger.error(
-                "download.exception", source_type=source.source_type.value, error=str(e)
+                "download.exception",
+                source_type=source.source_type.value,
+                error=str(e),
             )
             return DownloadResult.error_result(error_msg)
 
     async def download_multiple(
         self,
-        sources: List[AnySource],
+        sources: list[AnySource],
         destination_directory: str | Path | None = None,
         **kwargs: Any,
-    ) -> Dict[str, DownloadResult]:
+    ) -> dict[str, DownloadResult]:
         """Download multiple files concurrently.
 
         Args:
@@ -219,13 +222,14 @@ class UniversalDownloader:
         # Execute downloads concurrently
         results = {}
         completed_tasks = await asyncio.gather(
-            *[task for _, task in tasks], return_exceptions=True
+            *[task for _, task in tasks],
+            return_exceptions=True,
         )
 
-        for i, ((identifier, _), result) in enumerate(zip(tasks, completed_tasks)):
+        for (identifier, _), result in zip(tasks, completed_tasks, strict=False):
             if isinstance(result, Exception):
                 results[identifier] = DownloadResult.error_result(
-                    f"Task failed: {str(result)}"
+                    f"Task failed: {str(result)}",
                 )
             else:
                 results[identifier] = result
@@ -243,7 +247,7 @@ class UniversalDownloader:
 
         return results
 
-    def _find_downloader(self, source: AnySource) -> Optional[BaseDownloader]:
+    def _find_downloader(self, source: AnySource) -> BaseDownloader | None:
         """Find appropriate downloader for the source."""
         for downloader in self.downloaders:
             if downloader.can_handle(source):
@@ -254,7 +258,7 @@ class UniversalDownloader:
         """Generate filename for source."""
         if isinstance(source, HTTPSource):
             # Extract filename from URL
-            from urllib.parse import urlparse, unquote
+            from urllib.parse import unquote, urlparse
 
             parsed = urlparse(source.url)
             filename = Path(unquote(parsed.path)).name
@@ -262,36 +266,36 @@ class UniversalDownloader:
                 filename = f"download_{source.identifier}"
             return filename
 
-        elif isinstance(source, (FTPSource, SFTPSource)):
+        if isinstance(source, FTPSource | SFTPSource):
             # Use remote path filename
             filename = Path(source.remote_path).name
             if not filename:
                 filename = f"download_{source.identifier}"
             return filename
 
-        elif isinstance(source, S3Source):
+        if isinstance(source, S3Source):
             # Use S3 key filename
             filename = Path(source.key).name
             if not filename:
                 filename = f"s3_{source.bucket}_{source.identifier}"
             return filename
 
-        elif isinstance(source, LocalFileSource):
+        if isinstance(source, LocalFileSource):
             # Use source filename
             filename = Path(source.file_path).name
             if not filename:
                 filename = f"local_{source.identifier}"
             return filename
 
-        else:
-            # Default filename
-            return f"download_{source.identifier}"
+        # Default filename
+        return f"download_{source.identifier}"
 
     def add_downloader(self, downloader: BaseDownloader) -> None:
         """Add a custom downloader."""
         self.downloaders.append(downloader)
         self.logger.info(
-            "downloader.added", downloader_type=downloader.__class__.__name__
+            "downloader.added",
+            downloader_type=downloader.__class__.__name__,
         )
 
     def set_rate_limit(self, max_requests_per_second: float) -> None:
@@ -301,10 +305,11 @@ class UniversalDownloader:
             max_concurrent_downloads=self.rate_limiter.max_concurrent_downloads,
         )
         self.logger.info(
-            "rate_limit.updated", max_requests_per_second=max_requests_per_second
+            "rate_limit.updated",
+            max_requests_per_second=max_requests_per_second,
         )
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get downloader statistics."""
         return {
             "max_retries": self.max_retries,

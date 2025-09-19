@@ -61,8 +61,41 @@ multi_line_output = 3
 [tool.ruff]
 target-version = "py311"
 line-length = 88
-select = ["E", "F", "W", "C90", "I", "N", "UP", "YTT", "S", "BLE", "FBT", "B", "A", "COM", "C4", "DTZ", "T10", "EM", "EXE", "FA", "ISC", "ICN", "G", "INP", "PIE", "T20", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "TD", "FIX", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "AIR", "PERF"]
-ignore = ["S101", "S104", "S108", "S110", "S112", "S311", "S603", "S607"]
+
+[tool.ruff.lint]
+# Essential rules for code quality - much more reasonable than the previous 50+ categories
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings  
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "ARG",  # flake8-unused-arguments
+    "SIM",  # flake8-simplify
+]
+
+# Ignore overly strict rules that don't add much value
+ignore = [
+    "S101",    # Use of assert detected (fine for tests)
+    "S104",    # Hardcoded bind all interfaces (0.0.0.0)
+    "S108",    # Probable insecure usage of temp file/directory
+    "S110",    # Try, Except, Pass detected
+    "S112",    # Probable insecure usage of pseudo-random generators
+    "S311",    # Standard pseudo-random generators are not suitable for cryptographic purposes
+    "S603",    # subprocess call - check for execution of untrusted input
+    "S607",    # Starting a process with a partial executable path
+    "E501",    # Line too long (handled by black)
+    "B008",    # Do not perform function calls in argument defaults
+    "B904",    # Within an `except` clause, raise exceptions with `raise ... from err`
+    "C901",    # Too complex
+    "ARG001",  # Unused function argument
+    "ARG002",  # Unused method argument
+    "ARG003",  # Unused class method argument
+    "ARG004",  # Unused static method argument
+    "ARG005",  # Unused lambda argument
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

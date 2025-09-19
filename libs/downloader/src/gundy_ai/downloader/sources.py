@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field, validator
@@ -16,7 +15,8 @@ class SourceDescriptor(BaseModel):
     source_type: SourceType = Field(description="Type of source")
     identifier: str = Field(description="Unique identifier for the source")
     metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
+        default_factory=dict,
+        description="Additional metadata",
     )
 
 
@@ -31,11 +31,13 @@ class HTTPSource(SourceDescriptor):
     params: dict[str, Any] = Field(default_factory=dict, description="Query parameters")
     cookies: dict[str, str] = Field(default_factory=dict, description="Cookies")
     follow_redirects: bool = Field(
-        default=True, description="Whether to follow redirects"
+        default=True,
+        description="Whether to follow redirects",
     )
     max_redirects: int = Field(default=10, description="Maximum number of redirects")
     verify_ssl: bool = Field(
-        default=True, description="Whether to verify SSL certificates"
+        default=True,
+        description="Whether to verify SSL certificates",
     )
     timeout: int = Field(default=300, description="Timeout in seconds")
 
@@ -79,7 +81,8 @@ class SFTPSource(SourceDescriptor):
     password: str | None = Field(None, description="SFTP password")
     private_key_path: str | None = Field(None, description="Path to private key file")
     private_key_passphrase: str | None = Field(
-        None, description="Private key passphrase"
+        None,
+        description="Private key passphrase",
     )
     remote_path: str = Field(description="Remote file path")
     timeout: int = Field(default=300, description="Connection timeout in seconds")
@@ -119,11 +122,13 @@ class LocalFileSource(SourceDescriptor):
     """Local file source descriptor (for copying/moving files)."""
 
     source_type: SourceType = Field(
-        default=SourceType.LOCAL_FILE, description="Source type"
+        default=SourceType.LOCAL_FILE,
+        description="Source type",
     )
     file_path: str = Field(description="Path to the local file")
     move_file: bool = Field(
-        default=False, description="Whether to move instead of copy"
+        default=False,
+        description="Whether to move instead of copy",
     )
     preserve_metadata: bool = Field(default=True, description="Preserve file metadata")
 
@@ -144,7 +149,8 @@ class VendorPortalSource(SourceDescriptor):
     """Vendor portal source descriptor (generic)."""
 
     source_type: SourceType = Field(
-        default=SourceType.VENDOR_PORTAL, description="Source type"
+        default=SourceType.VENDOR_PORTAL,
+        description="Source type",
     )
     portal_url: str = Field(description="Portal base URL")
     login_url: str = Field(description="Login endpoint URL")
@@ -153,13 +159,16 @@ class VendorPortalSource(SourceDescriptor):
     password: str = Field(description="Portal password")
     resource_id: str = Field(description="Resource identifier")
     session_cookies: dict[str, str] = Field(
-        default_factory=dict, description="Session cookies"
+        default_factory=dict,
+        description="Session cookies",
     )
     additional_headers: dict[str, str] = Field(
-        default_factory=dict, description="Additional headers"
+        default_factory=dict,
+        description="Additional headers",
     )
     authentication_method: str = Field(
-        default="form", description="Authentication method"
+        default="form",
+        description="Authentication method",
     )
     timeout: int = Field(default=300, description="Request timeout in seconds")
 

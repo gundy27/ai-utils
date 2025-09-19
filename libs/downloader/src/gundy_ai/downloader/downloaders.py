@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import time
 from pathlib import Path
 from typing import Any
@@ -10,19 +9,17 @@ from urllib.parse import urlparse
 
 import aiohttp
 import structlog
-from tenacity import retry, stop_after_attempt, wait_exponential
 
-from .base import BaseDownloader, DownloadResult, DownloadStatus, DownloadError
-from .sources import (
-    HTTPSource,
-    FTPSource,
-    SFTPSource,
-    S3Source,
-    LocalFileSource,
-    VendorPortalSource,
-)
+from .base import BaseDownloader, DownloadResult, LocalFile
 from .file_utils import FileUtils
 from .rate_limiter import RateLimiter
+from .sources import (
+    FTPSource,
+    HTTPSource,
+    LocalFileSource,
+    S3Source,
+    SFTPSource,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -46,7 +43,10 @@ class HTTPDownloader(BaseDownloader):
         return isinstance(source, HTTPSource)
 
     async def download(
-        self, source: HTTPSource, destination: str | Path, **kwargs: Any
+        self,
+        source: HTTPSource,
+        destination: str | Path,
+        **kwargs: Any,
     ) -> DownloadResult:
         """Download from HTTP/HTTPS source."""
 
@@ -65,13 +65,16 @@ class HTTPDownloader(BaseDownloader):
             timeout = aiohttp.ClientTimeout(total=source.timeout)
 
             async with aiohttp.ClientSession(
-                connector=connector, timeout=timeout, headers=source.headers
+                connector=connector,
+                timeout=timeout,
+                headers=source.headers,
             ) as session:
                 # Prepare authentication
                 auth = None
                 if source.auth:
                     auth = aiohttp.BasicAuth(
-                        source.auth.get("username", ""), source.auth.get("password", "")
+                        source.auth.get("username", ""),
+                        source.auth.get("password", ""),
                     )
 
                 # Make request
@@ -97,7 +100,9 @@ class HTTPDownloader(BaseDownloader):
 
                     # Write file
                     local_file = await FileUtils.write_file_async(
-                        destination, content, "wb"
+                        destination,
+                        content,
+                        "wb",
                     )
 
                     download_time = time.time() - start_time
@@ -113,9 +118,9 @@ class HTTPDownloader(BaseDownloader):
                         },
                     )
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return DownloadResult.error_result(
-                f"Download timeout after {source.timeout} seconds"
+                f"Download timeout after {source.timeout} seconds",
             )
         except Exception as e:
             return DownloadResult.error_result(f"Download failed: {str(e)}")
@@ -134,7 +139,10 @@ class FTPDownloader(BaseDownloader):
         return isinstance(source, FTPSource)
 
     async def download(
-        self, source: FTPSource, destination: str | Path, **kwargs: Any
+        self,
+        source: FTPSource,
+        destination: str | Path,
+        **kwargs: Any,
     ) -> DownloadResult:
         """Download from FTP source."""
 
@@ -161,7 +169,7 @@ class FTPDownloader(BaseDownloader):
             # Get file size
             try:
                 file_size = ftp.size(source.remote_path)
-            except:
+            except Exception:
                 file_size = None
 
             # Download file
@@ -210,7 +218,10 @@ class SFTPDownloader(BaseDownloader):
         return isinstance(source, SFTPSource)
 
     async def download(
-        self, source: SFTPSource, destination: str | Path, **kwargs: Any
+        self,
+        source: SFTPSource,
+        destination: str | Path,
+        **kwargs: Any,
     ) -> DownloadResult:
         """Download from SFTP source."""
 
@@ -308,7 +319,10 @@ class S3Downloader(BaseDownloader):
         return isinstance(source, S3Source)
 
     async def download(
-        self, source: S3Source, destination: str | Path, **kwargs: Any
+        self,
+        source: S3Source,
+        destination: str | Path,
+        **kwargs: Any,
     ) -> DownloadResult:
         """Download from S3 source."""
 
@@ -327,7 +341,7 @@ class S3Downloader(BaseDownloader):
                     {
                         "aws_access_key_id": source.access_key_id,
                         "aws_secret_access_key": source.secret_access_key,
-                    }
+                    },
                 )
 
             if source.session_token:
@@ -388,7 +402,10 @@ class LocalFileDownloader(BaseDownloader):
         return isinstance(source, LocalFileSource)
 
     async def download(
-        self, source: LocalFileSource, destination: str | Path, **kwargs: Any
+        self,
+        source: LocalFileSource,
+        destination: str | Path,
+        **kwargs: Any,
     ) -> DownloadResult:
         """Copy/move local file."""
 
@@ -400,7 +417,7 @@ class LocalFileDownloader(BaseDownloader):
 
             if not source_path.exists():
                 return DownloadResult.error_result(
-                    f"Source file not found: {source_path}"
+                    f"Source file not found: {source_path}",
                 )
 
             # Ensure destination directory exists
@@ -409,12 +426,16 @@ class LocalFileDownloader(BaseDownloader):
             # Copy or move file
             if source.move_file:
                 local_file = await FileUtils.move_file(
-                    source_path, destination, preserve_metadata=source.preserve_metadata
+                    source_path,
+                    destination,
+                    preserve_metadata=source.preserve_metadata,
                 )
                 operation = "move"
             else:
                 local_file = await FileUtils.copy_file(
-                    source_path, destination, preserve_metadata=source.preserve_metadata
+                    source_path,
+                    destination,
+                    preserve_metadata=source.preserve_metadata,
                 )
                 operation = "copy"
 
@@ -436,5 +457,4 @@ class LocalFileDownloader(BaseDownloader):
             return DownloadResult.error_result(f"Local file operation failed: {str(e)}")
 
 
-# Import LocalFile here to avoid circular imports
-from .base import LocalFile
+# LocalFile import moved to top of file to avoid E402

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Dict, Optional
 
 import structlog
 from aiolimiter import AsyncLimiter
@@ -38,7 +37,7 @@ class RateLimiter:
         self.semaphore = asyncio.Semaphore(max_concurrent_downloads)
 
         # Per-domain limiters
-        self.domain_limiters: Dict[str, AsyncLimiter] = {}
+        self.domain_limiters: dict[str, AsyncLimiter] = {}
 
         self.logger = logger.bind(rate_limiter=True)
 
@@ -49,7 +48,7 @@ class RateLimiter:
             burst_size=burst_size,
         )
 
-    async def acquire(self, domain: Optional[str] = None) -> None:
+    async def acquire(self, domain: str | None = None) -> None:
         """Acquire rate limit permission.
 
         Args:
@@ -95,11 +94,14 @@ class RateLimiter:
             # Use more restrictive limits for domain-specific limiting
             domain_rate = min(self.max_requests_per_second, 0.5)
             self.domain_limiters[domain] = AsyncLimiter(
-                max_rate=domain_rate, time_period=1.0
+                max_rate=domain_rate,
+                time_period=1.0,
             )
 
             self.logger.info(
-                "rate_limiter.domain_created", domain=domain, rate=domain_rate
+                "rate_limiter.domain_created",
+                domain=domain,
+                rate=domain_rate,
             )
 
         return self.domain_limiters[domain]
@@ -110,7 +112,7 @@ class RateLimiter:
 
         self.logger.info("rate_limiter.domain_rate_set", domain=domain, rate=rate)
 
-    def get_stats(self) -> Dict[str, any]:
+    def get_stats(self) -> dict[str, any]:
         """Get current rate limiter statistics."""
         return {
             "max_requests_per_second": self.max_requests_per_second,

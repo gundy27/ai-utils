@@ -1,6 +1,5 @@
 """Basic tests for the downloader module."""
 
-import asyncio
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -8,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from gundy_ai.downloader import UniversalDownloader
+from gundy_ai.downloader.base import DownloadStatus
 from gundy_ai.downloader.sources import HTTPSource, LocalFileSource
-from gundy_ai.downloader.base import DownloadResult, DownloadStatus
 
 
 class TestUniversalDownloader:
@@ -84,7 +83,9 @@ class TestUniversalDownloader:
 
         # Create source
         source = LocalFileSource(
-            identifier="test", file_path=str(source_file), move_file=False
+            identifier="test",
+            file_path=str(source_file),
+            move_file=False,
         )
 
         # Download
@@ -113,7 +114,9 @@ class TestUniversalDownloader:
             source_files.append(source_file)
 
             source = LocalFileSource(
-                identifier=f"test_{i}", file_path=str(source_file), move_file=False
+                identifier=f"test_{i}",
+                file_path=str(source_file),
+                move_file=False,
             )
             sources.append(source)
 
@@ -122,7 +125,7 @@ class TestUniversalDownloader:
 
         # Verify results
         assert len(results) == 3
-        for i, (identifier, result) in enumerate(results.items()):
+        for i, (_identifier, result) in enumerate(results.items()):
             assert result.success
             assert result.local_file.path.name == f"source_{i}.txt"
 
@@ -130,7 +133,9 @@ class TestUniversalDownloader:
     async def test_download_nonexistent_file(self, downloader, temp_dir):
         """Test downloading a nonexistent file."""
         source = LocalFileSource(
-            identifier="test", file_path="/nonexistent/file.txt", move_file=False
+            identifier="test",
+            file_path="/nonexistent/file.txt",
+            move_file=False,
         )
 
         result = await downloader.download(source, temp_dir / "output.txt")

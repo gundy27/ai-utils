@@ -2,15 +2,14 @@
 
 import asyncio
 import json
-from pathlib import Path
-from typing import List, Optional
+from typing import Any
 
 import click
 import structlog
 
-from .downloader import UniversalDownloader
-from .sources import HTTPSource, S3Source, LocalFileSource
 from .base import DownloadResult
+from .downloader import UniversalDownloader
+from .sources import HTTPSource, LocalFileSource, S3Source
 
 logger = structlog.get_logger(__name__)
 
@@ -18,7 +17,10 @@ logger = structlog.get_logger(__name__)
 @click.group()
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose logging")
 @click.option(
-    "--destination", "-d", type=click.Path(), help="Default destination directory"
+    "--destination",
+    "-d",
+    type=click.Path(),
+    help="Default destination directory",
 )
 @click.option("--max-retries", default=3, help="Maximum retry attempts")
 @click.option("--timeout", default=300, help="Timeout in seconds")
@@ -28,7 +30,7 @@ logger = structlog.get_logger(__name__)
 def cli(
     ctx: click.Context,
     verbose: bool,
-    destination: Optional[str],
+    destination: str | None,
     max_retries: int,
     timeout: int,
     rate_limit: float,
@@ -69,7 +71,7 @@ def cli(
             max_concurrent_downloads=max_concurrent,
             rate_limit_per_second=rate_limit,
             destination_directory=destination,
-        )
+        ),
     }
 
 
@@ -84,11 +86,11 @@ def cli(
 def http(
     ctx: click.Context,
     url: str,
-    headers: Optional[str],
-    auth: Optional[str],
+    headers: str | None,
+    auth: str | None,
     method: str,
-    destination: Optional[str],
-    filename: Optional[str],
+    destination: str | None,
+    filename: str | None,
 ):
     """Download from HTTP/HTTPS URL."""
 
@@ -114,7 +116,11 @@ def http(
 
     # Create source
     source = HTTPSource(
-        identifier=url, url=url, headers=parsed_headers, auth=parsed_auth, method=method
+        identifier=url,
+        url=url,
+        headers=parsed_headers,
+        auth=parsed_auth,
+        method=method,
     )
 
     # Download
@@ -141,14 +147,14 @@ def s3(
     ctx: click.Context,
     bucket: str,
     key: str,
-    region: Optional[str],
-    access_key_id: Optional[str],
-    secret_access_key: Optional[str],
-    session_token: Optional[str],
-    endpoint_url: Optional[str],
-    version_id: Optional[str],
-    destination: Optional[str],
-    filename: Optional[str],
+    region: str | None,
+    access_key_id: str | None,
+    secret_access_key: str | None,
+    session_token: str | None,
+    endpoint_url: str | None,
+    version_id: str | None,
+    destination: str | None,
+    filename: str | None,
 ):
     """Download from AWS S3."""
 
@@ -189,8 +195,8 @@ def s3(
 def local(
     ctx: click.Context,
     source_path: str,
-    destination: Optional[str],
-    filename: Optional[str],
+    destination: str | None,
+    filename: str | None,
     move: bool,
 ):
     """Copy or move local file."""
@@ -199,7 +205,9 @@ def local(
 
     # Create source
     source = LocalFileSource(
-        identifier=source_path, file_path=source_path, move_file=move
+        identifier=source_path,
+        file_path=source_path,
+        move_file=move,
     )
 
     # Download
@@ -226,7 +234,7 @@ def batch(ctx: click.Context, config: str):
 
     # Load config
     try:
-        with open(config, "r") as f:
+        with open(config) as f:
             config_data = json.load(f)
     except (json.JSONDecodeError, FileNotFoundError) as e:
         click.echo(f"Error loading config: {e}", err=True)
@@ -256,14 +264,14 @@ def batch(ctx: click.Context, config: str):
         successful = sum(1 for r in results.values() if r.success)
         failed = len(results) - successful
 
-        click.echo(f"\nDownload Summary:")
+        click.echo("\nDownload Summary:")
         click.echo(f"Total: {len(results)}")
         click.echo(f"Successful: {successful}")
         click.echo(f"Failed: {failed}")
 
         # Print failed downloads
         if failed > 0:
-            click.echo(f"\nFailed downloads:")
+            click.echo("\nFailed downloads:")
             for identifier, result in results.items():
                 if not result.success:
                     click.echo(f"  {identifier}: {result.error}")
@@ -287,7 +295,7 @@ def _handle_result(result: DownloadResult) -> None:
     """Handle download result."""
 
     if result.success:
-        click.echo(f"✓ Download successful!")
+        click.echo("✓ Download successful!")
         click.echo(f"  File: {result.local_file.path}")
         click.echo(f"  Size: {result.bytes_downloaded} bytes")
         click.echo(f"  Time: {result.download_time_seconds:.2f}s")
@@ -296,7 +304,7 @@ def _handle_result(result: DownloadResult) -> None:
         click.echo(f"✗ Download failed: {result.error}", err=True)
 
 
-def _create_source_from_config(task: dict) -> Optional[Any]:
+def _create_source_from_config(task: dict) -> Any | None:
     """Create source from config task."""
 
     source_type = task.get("type")
@@ -310,7 +318,7 @@ def _create_source_from_config(task: dict) -> Optional[Any]:
             method=task.get("method", "GET"),
         )
 
-    elif source_type == "s3":
+    if source_type == "s3":
         return S3Source(
             identifier=task.get("id", f"{task['bucket']}/{task['key']}"),
             bucket=task["bucket"],
@@ -323,16 +331,15 @@ def _create_source_from_config(task: dict) -> Optional[Any]:
             version_id=task.get("version_id"),
         )
 
-    elif source_type == "local":
+    if source_type == "local":
         return LocalFileSource(
             identifier=task.get("id", task["file_path"]),
             file_path=task["file_path"],
             move_file=task.get("move", False),
         )
 
-    else:
-        click.echo(f"Unknown source type: {source_type}", err=True)
-        return None
+    click.echo(f"Unknown source type: {source_type}", err=True)
+    return None
 
 
 def main():

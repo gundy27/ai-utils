@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import aiofiles
 import structlog
@@ -74,7 +73,9 @@ class FileUtils:
 
     @staticmethod
     async def copy_file(
-        source: str | Path, destination: str | Path, preserve_metadata: bool = True
+        source: str | Path,
+        destination: str | Path,
+        preserve_metadata: bool = True,
     ) -> LocalFile:
         """Copy a file from source to destination."""
         source = Path(source)
@@ -107,7 +108,9 @@ class FileUtils:
 
     @staticmethod
     async def move_file(
-        source: str | Path, destination: str | Path, preserve_metadata: bool = True
+        source: str | Path,
+        destination: str | Path,
+        preserve_metadata: bool = True,
     ) -> LocalFile:
         """Move a file from source to destination."""
         source = Path(source)
@@ -140,7 +143,9 @@ class FileUtils:
 
     @staticmethod
     async def write_file_async(
-        file_path: str | Path, content: bytes, mode: str = "wb"
+        file_path: str | Path,
+        content: bytes,
+        mode: str = "wb",
     ) -> LocalFile:
         """Write content to file asynchronously."""
         file_path = Path(file_path)
@@ -208,7 +213,9 @@ class FileUtils:
                 deleted_count += 1
             except Exception as e:
                 logger.warning(
-                    "temp_file.delete.error", path=str(temp_file), error=str(e)
+                    "temp_file.delete.error",
+                    path=str(temp_file),
+                    error=str(e),
                 )
 
         logger.info("temp_files.cleaned", count=deleted_count, directory=str(directory))

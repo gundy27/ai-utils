@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
-import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -83,7 +83,9 @@ class FileChecksum(BaseModel):
 
     @classmethod
     def compute_file_hash(
-        cls, file_path: str | Path, algorithm: str = "sha256"
+        cls,
+        file_path: str | Path,
+        algorithm: str = "sha256",
     ) -> FileChecksum:
         """Compute hash for a file."""
         file_path = Path(file_path)
@@ -153,13 +155,15 @@ class DownloadResult(BaseModel):
 
     success: bool = Field(description="Whether download was successful")
     local_file: LocalFile | None = Field(
-        None, description="Downloaded file information"
+        None,
+        description="Downloaded file information",
     )
     error: str | None = Field(None, description="Error message if failed")
     status: DownloadStatus = Field(description="Download status")
     bytes_downloaded: int = Field(default=0, description="Number of bytes downloaded")
     download_time_seconds: float = Field(
-        default=0.0, description="Time taken to download"
+        default=0.0,
+        description="Time taken to download",
     )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -183,7 +187,9 @@ class DownloadResult(BaseModel):
 
     @classmethod
     def error_result(
-        cls, error: str, metadata: dict[str, Any] | None = None
+        cls,
+        error: str,
+        metadata: dict[str, Any] | None = None,
     ) -> DownloadResult:
         """Create a failed download result."""
         return cls(
@@ -195,7 +201,9 @@ class DownloadResult(BaseModel):
 
     @classmethod
     def skipped_result(
-        cls, reason: str, metadata: dict[str, Any] | None = None
+        cls,
+        reason: str,
+        metadata: dict[str, Any] | None = None,
     ) -> DownloadResult:
         """Create a skipped download result."""
         return cls(
@@ -222,15 +230,16 @@ class BaseDownloader(ABC):
         **kwargs: Any,
     ) -> DownloadResult:
         """Download from source to destination."""
-        pass
 
     @abstractmethod
     def can_handle(self, source: Any) -> bool:
         """Check if this downloader can handle the given source."""
-        pass
 
     async def download_with_retry(
-        self, source: Any, destination: str | Path, **kwargs: Any
+        self,
+        source: Any,
+        destination: str | Path,
+        **kwargs: Any,
     ) -> DownloadResult:
         """Download with retry logic."""
         destination = Path(destination)
@@ -255,31 +264,30 @@ class BaseDownloader(ABC):
                         download_time=result.download_time_seconds,
                     )
                     return result
-                else:
-                    self.logger.warning(
-                        "download.failed", attempt=attempt + 1, error=result.error
-                    )
+                self.logger.warning(
+                    "download.failed",
+                    attempt=attempt + 1,
+                    error=result.error,
+                )
 
-                    if attempt == self.max_retries:
-                        return result
+                if attempt == self.max_retries:
+                    return result
 
-                    # Wait before retry (exponential backoff)
-                    await asyncio.sleep(2**attempt)
+                # Wait before retry (exponential backoff)
+                await asyncio.sleep(2**attempt)
 
             except Exception as e:
                 self.logger.error(
-                    "download.exception", attempt=attempt + 1, error=str(e)
+                    "download.exception",
+                    attempt=attempt + 1,
+                    error=str(e),
                 )
 
                 if attempt == self.max_retries:
                     return DownloadResult.error_result(
-                        f"Download failed after {self.max_retries + 1} attempts: {str(e)}"
+                        f"Download failed after {self.max_retries + 1} attempts: {str(e)}",
                     )
 
                 await asyncio.sleep(2**attempt)
 
         return DownloadResult.error_result("Download failed after all retries")
-
-
-# Import asyncio here to avoid circular imports
-import asyncio
