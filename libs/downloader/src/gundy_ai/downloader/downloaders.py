@@ -32,9 +32,10 @@ class HTTPDownloader(BaseDownloader):
         max_retries: int = 3,
         timeout_seconds: int = 300,
         rate_limiter: RateLimiter | None = None,
+        audit_hook: Any | None = None,
     ):
         """Initialize HTTP downloader."""
-        super().__init__(max_retries, timeout_seconds)
+        super().__init__(max_retries, timeout_seconds, audit_hook)
         self.rate_limiter = rate_limiter
         self.logger = logger.bind(downloader="http")
 
@@ -129,9 +130,14 @@ class HTTPDownloader(BaseDownloader):
 class FTPDownloader(BaseDownloader):
     """FTP downloader."""
 
-    def __init__(self, max_retries: int = 3, timeout_seconds: int = 300):
+    def __init__(
+        self,
+        max_retries: int = 3,
+        timeout_seconds: int = 300,
+        audit_hook: Any | None = None,
+    ):
         """Initialize FTP downloader."""
-        super().__init__(max_retries, timeout_seconds)
+        super().__init__(max_retries, timeout_seconds, audit_hook)
         self.logger = logger.bind(downloader="ftp")
 
     def can_handle(self, source: Any) -> bool:
@@ -208,9 +214,14 @@ class FTPDownloader(BaseDownloader):
 class SFTPDownloader(BaseDownloader):
     """SFTP downloader."""
 
-    def __init__(self, max_retries: int = 3, timeout_seconds: int = 300):
+    def __init__(
+        self,
+        max_retries: int = 3,
+        timeout_seconds: int = 300,
+        audit_hook: Any | None = None,
+    ):
         """Initialize SFTP downloader."""
-        super().__init__(max_retries, timeout_seconds)
+        super().__init__(max_retries, timeout_seconds, audit_hook)
         self.logger = logger.bind(downloader="sftp")
 
     def can_handle(self, source: Any) -> bool:
@@ -309,9 +320,14 @@ class SFTPDownloader(BaseDownloader):
 class S3Downloader(BaseDownloader):
     """AWS S3 downloader."""
 
-    def __init__(self, max_retries: int = 3, timeout_seconds: int = 300):
+    def __init__(
+        self,
+        max_retries: int = 3,
+        timeout_seconds: int = 300,
+        audit_hook: Any | None = None,
+    ):
         """Initialize S3 downloader."""
-        super().__init__(max_retries, timeout_seconds)
+        super().__init__(max_retries, timeout_seconds, audit_hook)
         self.logger = logger.bind(downloader="s3")
 
     def can_handle(self, source: Any) -> bool:
@@ -392,9 +408,14 @@ class S3Downloader(BaseDownloader):
 class LocalFileDownloader(BaseDownloader):
     """Local file downloader (copy/move operations)."""
 
-    def __init__(self, max_retries: int = 1, timeout_seconds: int = 60):
+    def __init__(
+        self,
+        max_retries: int = 1,
+        timeout_seconds: int = 60,
+        audit_hook: Any | None = None,
+    ):
         """Initialize local file downloader."""
-        super().__init__(max_retries, timeout_seconds)
+        super().__init__(max_retries, timeout_seconds, audit_hook)
         self.logger = logger.bind(downloader="local_file")
 
     def can_handle(self, source: Any) -> bool:

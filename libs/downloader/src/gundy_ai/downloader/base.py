@@ -216,10 +216,22 @@ class DownloadResult(BaseModel):
 class BaseDownloader(ABC):
     """Base class for all downloaders."""
 
-    def __init__(self, max_retries: int = 3, timeout_seconds: int = 300):
-        """Initialize base downloader."""
+    def __init__(
+        self,
+        max_retries: int = 3,
+        timeout_seconds: int = 300,
+        audit_hook: Any | None = None,  # Will be AuditHook type when imported
+    ):
+        """Initialize base downloader.
+
+        Args:
+            max_retries: Maximum number of retry attempts
+            timeout_seconds: Timeout for download operations
+            audit_hook: Optional audit hook for logging download events
+        """
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
+        self.audit_hook = audit_hook
         self.logger = logger.bind(downloader=self.__class__.__name__)
 
     @abstractmethod
@@ -235,14 +247,114 @@ class BaseDownloader(ABC):
     def can_handle(self, source: Any) -> bool:
         """Check if this downloader can handle the given source."""
 
+    async def _log_audit_event(
+        self,
+        event_type: str,
+        actor_id: str,
+        tenant_id: str,
+        source: Any,
+        destination: str | Path,
+        success: bool,
+        **kwargs: Any,
+    ) -> None:
+        """Log an audit event if audit hook is configured.
+
+        Args:
+            event_type: Type of audit event
+            actor_id: ID of the actor performing the action
+            tenant_id: Tenant identifier
+            source: Download source
+            destination: Destination path
+            success: Whether the operation was successful
+            **kwargs: Additional fields for the audit event
+        """
+        if not self.audit_hook:
+            return
+
+        try:
+            # Import here to avoid circular imports
+            from .audit import (
+                DownloadAuditEventType,
+                DownloadAuditSeverity,
+                create_download_audit_event,
+            )
+
+            # Map string event types to enum values
+            event_type_map = {
+                "download_start": DownloadAuditEventType.DOWNLOAD_START,
+                "download_success": DownloadAuditEventType.DOWNLOAD_SUCCESS,
+                "download_failure": DownloadAuditEventType.DOWNLOAD_FAILURE,
+                "download_retry": DownloadAuditEventType.DOWNLOAD_RETRY,
+                "file_integrity_verification": DownloadAuditEventType.FILE_INTEGRITY_VERIFICATION,
+                "file_integrity_failure": DownloadAuditEventType.FILE_INTEGRITY_FAILURE,
+            }
+
+            audit_event_type = event_type_map.get(
+                event_type, DownloadAuditEventType.DOWNLOAD_START
+            )
+
+            # Determine severity based on success and event type
+            severity = (
+                DownloadAuditSeverity.ERROR
+                if not success
+                else DownloadAuditSeverity.INFO
+            )
+            if event_type in ["file_integrity_failure", "suspicious_activity"]:
+                severity = DownloadAuditSeverity.WARNING
+
+            # Extract source information
+            source_identifier = getattr(source, "identifier", "unknown")
+            source_type = getattr(source, "source_type", None)
+            source_uri = getattr(source, "get_uri", lambda: "")()
+
+            # Create audit event
+            audit_event = create_download_audit_event(
+                event_type=audit_event_type,
+                actor_id=actor_id,
+                tenant_id=tenant_id,
+                source_identifier=source_identifier,
+                source_type=source_type,
+                source_uri=source_uri,
+                destination_path=str(destination),
+                success=success,
+                severity=severity,
+                **kwargs,
+            )
+
+            # Log the event
+            await self.audit_hook.log_download_event(audit_event)
+
+        except Exception as e:
+            # Don't let audit logging failures break downloads
+            self.logger.warning(
+                "audit_logging_failed",
+                error=str(e),
+                event_type=event_type,
+                source_identifier=getattr(source, "identifier", "unknown"),
+            )
+
     async def download_with_retry(
         self,
         source: Any,
         destination: str | Path,
+        actor_id: str = "system",
+        tenant_id: str = "default",
         **kwargs: Any,
     ) -> DownloadResult:
-        """Download with retry logic."""
+        """Download with retry logic and audit logging."""
         destination = Path(destination)
+        start_time = datetime.utcnow()
+
+        # Log download start
+        await self._log_audit_event(
+            event_type="download_start",
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            source=source,
+            destination=destination,
+            success=True,
+            retry_count=0,
+        )
 
         for attempt in range(self.max_retries + 1):
             try:
@@ -263,14 +375,65 @@ class BaseDownloader(ABC):
                         bytes_downloaded=result.bytes_downloaded,
                         download_time=result.download_time_seconds,
                     )
+
+                    # Log successful download
+                    await self._log_audit_event(
+                        event_type="download_success",
+                        actor_id=actor_id,
+                        tenant_id=tenant_id,
+                        source=source,
+                        destination=destination,
+                        success=True,
+                        retry_count=attempt,
+                        file_name=(
+                            result.local_file.path.name if result.local_file else None
+                        ),
+                        file_size=result.bytes_downloaded,
+                        file_checksum=(
+                            result.local_file.checksum.value
+                            if result.local_file
+                            else None
+                        ),
+                        download_duration_ms=result.download_time_seconds * 1000,
+                        bytes_downloaded=result.bytes_downloaded,
+                    )
                     return result
+
                 self.logger.warning(
                     "download.failed",
                     attempt=attempt + 1,
                     error=result.error,
                 )
 
+                # Log retry attempt
+                if attempt < self.max_retries:
+                    await self._log_audit_event(
+                        event_type="download_retry",
+                        actor_id=actor_id,
+                        tenant_id=tenant_id,
+                        source=source,
+                        destination=destination,
+                        success=False,
+                        retry_count=attempt + 1,
+                        error_message=result.error,
+                    )
+
                 if attempt == self.max_retries:
+                    # Log final failure
+                    await self._log_audit_event(
+                        event_type="download_failure",
+                        actor_id=actor_id,
+                        tenant_id=tenant_id,
+                        source=source,
+                        destination=destination,
+                        success=False,
+                        retry_count=attempt,
+                        error_message=result.error,
+                        download_duration_ms=(
+                            datetime.utcnow() - start_time
+                        ).total_seconds()
+                        * 1000,
+                    )
                     return result
 
                 # Wait before retry (exponential backoff)
@@ -284,10 +447,55 @@ class BaseDownloader(ABC):
                 )
 
                 if attempt == self.max_retries:
-                    return DownloadResult.error_result(
+                    error_result = DownloadResult.error_result(
                         f"Download failed after {self.max_retries + 1} attempts: {str(e)}",
                     )
 
+                    # Log final failure with exception
+                    await self._log_audit_event(
+                        event_type="download_failure",
+                        actor_id=actor_id,
+                        tenant_id=tenant_id,
+                        source=source,
+                        destination=destination,
+                        success=False,
+                        retry_count=attempt,
+                        error_message=str(e),
+                        error_code="EXCEPTION",
+                        download_duration_ms=(
+                            datetime.utcnow() - start_time
+                        ).total_seconds()
+                        * 1000,
+                    )
+                    return error_result
+
+                # Log retry attempt with exception
+                await self._log_audit_event(
+                    event_type="download_retry",
+                    actor_id=actor_id,
+                    tenant_id=tenant_id,
+                    source=source,
+                    destination=destination,
+                    success=False,
+                    retry_count=attempt + 1,
+                    error_message=str(e),
+                    error_code="EXCEPTION",
+                )
+
                 await asyncio.sleep(2**attempt)
 
-        return DownloadResult.error_result("Download failed after all retries")
+        # This should never be reached, but just in case
+        final_error = DownloadResult.error_result("Download failed after all retries")
+        await self._log_audit_event(
+            event_type="download_failure",
+            actor_id=actor_id,
+            tenant_id=tenant_id,
+            source=source,
+            destination=destination,
+            success=False,
+            retry_count=self.max_retries,
+            error_message="Download failed after all retries",
+            download_duration_ms=(datetime.utcnow() - start_time).total_seconds()
+            * 1000,
+        )
+        return final_error

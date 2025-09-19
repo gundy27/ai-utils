@@ -40,6 +40,7 @@ class UniversalDownloader:
         max_concurrent_downloads: int = 3,
         rate_limit_per_second: float = 1.0,
         destination_directory: str | Path | None = None,
+        audit_hook: Any | None = None,  # Will be AuditHook type when imported
     ):
         """Initialize universal downloader.
 
@@ -49,9 +50,11 @@ class UniversalDownloader:
             max_concurrent_downloads: Maximum concurrent downloads
             rate_limit_per_second: Rate limit for downloads per second
             destination_directory: Default destination directory
+            audit_hook: Optional audit hook for logging download events
         """
         self.max_retries = max_retries
         self.timeout_seconds = timeout_seconds
+        self.audit_hook = audit_hook
         self.destination_directory = (
             Path(destination_directory) if destination_directory else None
         )
@@ -62,13 +65,13 @@ class UniversalDownloader:
             max_concurrent_downloads=max_concurrent_downloads,
         )
 
-        # Initialize individual downloaders
+        # Initialize individual downloaders with audit hook
         self.downloaders: list[BaseDownloader] = [
-            HTTPDownloader(max_retries, timeout_seconds, self.rate_limiter),
-            FTPDownloader(max_retries, timeout_seconds),
-            SFTPDownloader(max_retries, timeout_seconds),
-            S3Downloader(max_retries, timeout_seconds),
-            LocalFileDownloader(max_retries, timeout_seconds),
+            HTTPDownloader(max_retries, timeout_seconds, self.rate_limiter, audit_hook),
+            FTPDownloader(max_retries, timeout_seconds, audit_hook),
+            SFTPDownloader(max_retries, timeout_seconds, audit_hook),
+            S3Downloader(max_retries, timeout_seconds, audit_hook),
+            LocalFileDownloader(max_retries, timeout_seconds, audit_hook),
         ]
 
         self.logger = logger.bind(universal_downloader=True)
@@ -89,6 +92,8 @@ class UniversalDownloader:
         source: AnySource,
         destination: str | Path | None = None,
         filename: str | None = None,
+        actor_id: str = "system",
+        tenant_id: str = "default",
         **kwargs: Any,
     ) -> DownloadResult:
         """Download from any supported source.
@@ -97,6 +102,8 @@ class UniversalDownloader:
             source: Source descriptor
             destination: Destination path (optional if destination_directory is set)
             filename: Custom filename (optional)
+            actor_id: ID of the actor performing the download
+            tenant_id: Tenant identifier for audit logging
             **kwargs: Additional arguments for specific downloaders
 
         Returns:
@@ -148,8 +155,10 @@ class UniversalDownloader:
             return DownloadResult.error_result(error_msg)
 
         try:
-            # Perform download with retry logic
-            result = await downloader.download_with_retry(source, destination, **kwargs)
+            # Perform download with retry logic and audit logging
+            result = await downloader.download_with_retry(
+                source, destination, actor_id=actor_id, tenant_id=tenant_id, **kwargs
+            )
 
             if result.success:
                 self.logger.info(
@@ -182,6 +191,8 @@ class UniversalDownloader:
         self,
         sources: list[AnySource],
         destination_directory: str | Path | None = None,
+        actor_id: str = "system",
+        tenant_id: str = "default",
         **kwargs: Any,
     ) -> dict[str, DownloadResult]:
         """Download multiple files concurrently.
@@ -189,6 +200,8 @@ class UniversalDownloader:
         Args:
             sources: List of source descriptors
             destination_directory: Base directory for downloads
+            actor_id: ID of the actor performing the downloads
+            tenant_id: Tenant identifier for audit logging
             **kwargs: Additional arguments for downloads
 
         Returns:
@@ -216,7 +229,9 @@ class UniversalDownloader:
             filename = self._generate_filename(source)
             destination = destination_directory / filename
 
-            task = self.download(source, destination, **kwargs)
+            task = self.download(
+                source, destination, actor_id=actor_id, tenant_id=tenant_id, **kwargs
+            )
             tasks.append((source.identifier, task))
 
         # Execute downloads concurrently
