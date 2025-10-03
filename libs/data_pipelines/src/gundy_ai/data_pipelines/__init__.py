@@ -23,6 +23,8 @@ from .chunkers import (
     ChunkingResult,
     SemanticChunker,
     StructureAwareChunker,
+    TokenAwareChunker,
+    ChunkSplittingFilter,
 )
 from .embeddings import (
     EmbeddingProcessor,
@@ -42,6 +44,7 @@ from .pipeline import (
     DataPipeline,
     PipelineStage,
     PipelineConfig,
+    PipelineResult,
 )
 from .text_cleaning import (
     TextCleaner,
@@ -83,6 +86,23 @@ from .metrics import (
     AlertRule,
     AlertCondition,
 )
+from .config import (
+    ChunkingConfig,
+    ProcessingConfig,
+    get_config,
+    set_config,
+    configure_for_llm,
+    configure_for_openai,
+    configure_for_claude,
+    configure_for_local_llm,
+    reset_config,
+    OPENAI_GPT4_CONFIG,
+    OPENAI_GPT35_CONFIG,
+    CLAUDE_CONFIG,
+    LOCAL_4K_CONFIG,
+    LOCAL_8K_CONFIG,
+    LOCAL_16K_CONFIG,
+)
 
 __all__ = [
     # Base classes
@@ -102,6 +122,8 @@ __all__ = [
     "ChunkingResult",
     "SemanticChunker",
     "StructureAwareChunker",
+    "TokenAwareChunker",
+    "ChunkSplittingFilter",
     # PDF Parsers
     "PDFParser",
     "PDFParsingResult",
@@ -118,6 +140,7 @@ __all__ = [
     "DataPipeline",
     "PipelineStage",
     "PipelineConfig",
+    "PipelineResult",
     # Text cleaning
     "TextCleaner",
     "CleaningResult",
@@ -153,4 +176,20 @@ __all__ = [
     "AlertManager",
     "AlertRule",
     "AlertCondition",
+    # Configuration
+    "ChunkingConfig",
+    "ProcessingConfig",
+    "get_config",
+    "set_config",
+    "configure_for_llm",
+    "configure_for_openai",
+    "configure_for_claude",
+    "configure_for_local_llm",
+    "reset_config",
+    "OPENAI_GPT4_CONFIG",
+    "OPENAI_GPT35_CONFIG",
+    "CLAUDE_CONFIG",
+    "LOCAL_4K_CONFIG",
+    "LOCAL_8K_CONFIG",
+    "LOCAL_16K_CONFIG",
 ]

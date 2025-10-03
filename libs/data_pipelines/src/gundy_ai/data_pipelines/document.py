@@ -37,6 +37,8 @@ class ChunkingStrategy(Enum):
     SENTENCE_BOUNDARY = "sentence_boundary"
     PARAGRAPH_BOUNDARY = "paragraph_boundary"
     SEMANTIC = "semantic"
+    STRUCTURE_AWARE = "structure_aware"
+    TOKEN_AWARE = "token_aware"
 
 
 @dataclass

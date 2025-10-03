@@ -10,7 +10,7 @@ from typing import Any, Generic, TypeVar
 import structlog
 
 from .base import BaseProcessor, ProcessingResult
-from .document import EmbeddedDocument
+from .embeddings import EmbeddedDocument
 
 logger = structlog.get_logger(__name__)
 

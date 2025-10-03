@@ -12,9 +12,11 @@ from .chunkers import (
     BaseChunker,
     SemanticChunker,
     StructureAwareChunker,
+    TokenAwareChunker,
 )
 from .document import ChunkingStrategy, ProcessedDocument, TextChunker
 from .audit_integration import ProcessingAuditHook
+from .config import ChunkingConfig, get_config
 
 logger = structlog.get_logger(__name__)
 
@@ -26,8 +28,9 @@ class EnhancedTextChunker(BaseProcessor[ProcessedDocument, ProcessedDocument]):
         self,
         config: ProcessorConfig,
         strategy: ChunkingStrategy | str = ChunkingStrategy.SEMANTIC,
-        chunk_size: int = 1000,
-        overlap: int = 200,
+        chunk_size: int | None = None,
+        overlap: int | None = None,
+        chunking_config: ChunkingConfig | None = None,
         audit_hook: Any | None = None,
         **strategy_kwargs: Any,
     ):
@@ -36,27 +39,40 @@ class EnhancedTextChunker(BaseProcessor[ProcessedDocument, ProcessedDocument]):
         Args:
             config: Processor configuration
             strategy: Chunking strategy to use
-            chunk_size: Target chunk size in tokens
-            overlap: Overlap between chunks in tokens
+            chunk_size: Target chunk size (None to use global config)
+            overlap: Overlap between chunks (None to use global config)
+            chunking_config: Custom chunking configuration (None to use global config)
             audit_hook: Optional audit hook for tracking operations
             **strategy_kwargs: Additional arguments for specific strategies
         """
         super().__init__(config)
+
+        # Get chunking configuration
+        if chunking_config is None:
+            chunking_config = get_config().chunking
 
         # Normalize strategy
         if isinstance(strategy, str):
             if strategy == "semantic":
                 self.strategy = ChunkingStrategy.SEMANTIC
             elif strategy == "structure_aware":
-                # Add structure_aware to ChunkingStrategy enum if not exists
-                self.strategy = "structure_aware"
+                self.strategy = ChunkingStrategy.STRUCTURE_AWARE
+            elif strategy == "token_aware":
+                self.strategy = ChunkingStrategy.TOKEN_AWARE
             else:
                 self.strategy = ChunkingStrategy(strategy)
         else:
             self.strategy = strategy
 
-        self.chunk_size = chunk_size
-        self.overlap = overlap
+        # Use provided values or fall back to configuration
+        if self.strategy == ChunkingStrategy.TOKEN_AWARE:
+            self.chunk_size = chunk_size or chunking_config.target_tokens
+            self.overlap = overlap or chunking_config.overlap_tokens
+        else:
+            self.chunk_size = chunk_size or chunking_config.max_chunk_size
+            self.overlap = overlap or chunking_config.overlap_size
+
+        self.chunking_config = chunking_config
         self.strategy_kwargs = strategy_kwargs
 
         # Initialize audit hook
@@ -73,10 +89,20 @@ class EnhancedTextChunker(BaseProcessor[ProcessedDocument, ProcessedDocument]):
                 min_chunk_size=max(50, self.chunk_size // 10),
                 **self.strategy_kwargs,
             )
-        elif self.strategy == "structure_aware":
+        elif self.strategy == ChunkingStrategy.STRUCTURE_AWARE:
             return StructureAwareChunker(
                 max_chunk_size=self.chunk_size,
                 min_chunk_size=max(50, self.chunk_size // 10),
+                **self.strategy_kwargs,
+            )
+        elif self.strategy == ChunkingStrategy.TOKEN_AWARE:
+            return TokenAwareChunker(
+                max_tokens=self.chunking_config.max_tokens,
+                target_tokens=self.chunk_size,
+                overlap_tokens=self.overlap,
+                encoding_name=self.chunking_config.encoding_name,
+                preserve_sentences=self.chunking_config.preserve_sentences,
+                preserve_paragraphs=self.chunking_config.preserve_paragraphs,
                 **self.strategy_kwargs,
             )
         else:
