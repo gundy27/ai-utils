@@ -112,9 +112,18 @@ async def example_individual_components():
     print("\n=== Individual Components Example ===")
 
     # Create processors
+    # Basic mode (default) - simple text extraction
     doc_processor = DocumentProcessor(
         ProcessorConfig(name="document_processor", max_retries=2, timeout_seconds=60)
     )
+
+    # Advanced mode example (uncomment to enable):
+    # doc_processor = DocumentProcessor(
+    #     ProcessorConfig(name="document_processor", max_retries=2, timeout_seconds=60),
+    #     pdf_parser_priority=["pymupdf", "pdfplumber", "pypdf"],
+    #     enable_ocr_fallback=True,
+    #     enable_text_cleaning=True
+    # )
 
     chunker = TextChunker(
         ProcessorConfig(name="text_chunker", max_retries=2, timeout_seconds=30),

@@ -1,237 +1,450 @@
-# gundy-ai-data-pipelines
+# 🚀 Data Pipelines Library
 
-Data processing utilities for AI applications, providing document extraction, text chunking, and embedding generation capabilities.
+**Enterprise-grade document processing and text chunking for AI applications**
 
-## Features
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- **Document Processing**: Extract text from PDF, DOCX, HTML, Markdown, and plain text files
-- **Text Chunking**: Multiple chunking strategies (fixed size, sentence boundary, paragraph boundary)
-- **Embedding Generation**: Integration with OpenAI embedding models
-- **Pipeline Orchestration**: Configurable processing pipelines with retry logic
-- **CLI Interface**: Command-line tools for batch processing
-- **Async Support**: Full async/await support for high-performance processing
+The `data_pipelines` library provides comprehensive document processing, intelligent text chunking, and pipeline orchestration capabilities optimized for AI applications, particularly RAG (Retrieval Augmented Generation) systems.
 
-## Installation
+## ✨ Key Features
+
+- **🔄 Unified Document Processing**: Single processor handles basic and advanced use cases
+- **📄 Multi-Format Support**: PDF, DOCX, HTML, Markdown, and plain text
+- **🧠 Smart Chunking**: Semantic, token-aware, and structure-aware chunking strategies
+- **🎯 LLM Optimization**: Pre-configured settings for OpenAI, Claude, and local models
+- **👁️ OCR Integration**: Automatic fallback for scanned documents
+- **🧹 Text Cleaning**: Advanced cleaning for PDF artifacts and OCR errors
+- **⚙️ Centralized Configuration**: Single configuration point for all components
+- **🔌 Plugin System**: Extensible architecture for custom processing
+- **📊 Observability**: Built-in metrics, audit logging, and monitoring
+- **🚀 High Performance**: Async/await support with concurrent processing
+
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 pip install "git+https://github.com/gundy27/ai-utils.git#subdirectory=libs/data_pipelines"
 ```
 
-## Quick Start
+### One-Line Setup
+
+```python
+from gundy_ai.data_pipelines import quick_setup
+
+# Instant setup for OpenAI GPT-4
+processor = quick_setup("openai", "gpt-4")
+result = await processor.process("document.pdf")
+```
 
 ### Basic Usage
 
 ```python
 import asyncio
 from gundy_ai.data_pipelines import (
-    create_default_document_pipeline,
-    EmbeddingConfig,
-    EmbeddingModel
-)
-
-async def process_documents():
-    # Create pipeline configuration
-    embedding_config = {
-        "model": "text-embedding-3-small",
-        "api_key": "your-openai-api-key",
-        "max_batch_size": 100
-    }
-
-    # Create pipeline
-    pipeline = create_default_document_pipeline(
-        embedding_config=embedding_config,
-        chunk_size=1000,
-        chunk_overlap=200
-    )
-
-    # Process documents
-    file_paths = ["document1.pdf", "document2.docx"]
-    result = await pipeline.process_documents(file_paths)
-
-    print(f"Processed {result.processed_count} documents")
-    print(f"Success rate: {result.get_success_rate():.1f}%")
-
-# Run the processing
-asyncio.run(process_documents())
-```
-
-### Individual Components
-
-```python
-from gundy_ai.data_pipelines import (
     DocumentProcessor,
-    TextChunker,
-    EmbeddingProcessor,
+    EnhancedTextChunker,
     ProcessorConfig,
-    EmbeddingConfig,
-    EmbeddingModel
+    configure_for_openai,
+    ChunkingStrategy,
 )
 
-# Document processing
-doc_processor = DocumentProcessor(
-    ProcessorConfig(name="doc_processor")
-)
+async def process_document():
+    # Configure for your LLM (do this once)
+    configure_for_openai("gpt-4")
 
-# Text chunking
-chunker = TextChunker(
-    ProcessorConfig(name="chunker"),
-    chunk_size=1000,
-    overlap=200
-)
-
-# Embedding generation
-embedding_processor = EmbeddingProcessor(
-    ProcessorConfig(name="embedder"),
-    EmbeddingConfig(
-        model=EmbeddingModel.OPENAI_TEXT_EMBEDDING_3_SMALL,
-        api_key="your-api-key"
+    # Create processor
+    processor = DocumentProcessor(
+        config=ProcessorConfig(name="my_processor")
     )
-)
+
+    # Process document
+    doc_result = await processor.process("document.pdf")
+    document = doc_result.data
+
+    # Chunk the text
+    chunker = EnhancedTextChunker(
+        config=ProcessorConfig(name="chunker"),
+        strategy=ChunkingStrategy.SEMANTIC
+    )
+
+    chunk_result = await chunker.process(document)
+    chunks = chunk_result.data.chunks
+
+    print(f"Processed {len(document.full_text)} characters into {len(chunks)} chunks")
+
+# Run the example
+asyncio.run(process_document())
 ```
 
-## CLI Usage
+## 🎯 LLM Configuration
 
-### Process Documents
-
-```bash
-# Process a single document
-data-pipeline process-documents document.pdf --api-key YOUR_API_KEY
-
-# Process a directory of documents
-data-pipeline process-documents ./documents/ --output ./results/
-
-# Customize processing parameters
-data-pipeline process-documents ./docs/ \
-    --model text-embedding-3-large \
-    --chunk-size 1500 \
-    --chunk-overlap 300 \
-    --batch-size 50 \
-    --max-concurrent 3
-```
-
-### Generate Embeddings
-
-```bash
-# Generate embeddings for a text file
-data-pipeline generate-embeddings text.txt --output embeddings.json
-```
-
-## Configuration
-
-### Embedding Models
-
-Supported embedding models:
-
-- `text-embedding-3-small` (default)
-- `text-embedding-3-large`
-- `text-embedding-ada-002`
-
-### Chunking Strategies
-
-- **Fixed Size**: Split text into fixed token count chunks
-- **Sentence Boundary**: Split at sentence boundaries
-- **Paragraph Boundary**: Split at paragraph boundaries
-
-### Pipeline Configuration
-
-```python
-from gundy_ai.data_pipelines import PipelineConfig, PipelineStage
-
-config = PipelineConfig(
-    name="my_pipeline",
-    stages=[
-        PipelineStage.DOCUMENT_EXTRACTION,
-        PipelineStage.TEXT_CHUNKING,
-        PipelineStage.EMBEDDING_GENERATION
-    ],
-    max_concurrent_documents=5,
-    retry_failed_stages=True
-)
-```
-
-## Supported Document Types
-
-- **Text**: `.txt` files
-- **PDF**: `.pdf` files
-- **Word**: `.docx`, `.doc` files
-- **HTML**: `.html`, `.htm` files
-- **Markdown**: `.md`, `.markdown` files
-
-## Error Handling
-
-The library includes comprehensive error handling:
-
-- **Retry Logic**: Automatic retry with exponential backoff
-- **Timeout Protection**: Configurable timeouts for each stage
-- **Validation**: Input validation at each processing stage
-- **Detailed Logging**: Structured logging with context
-
-## Performance
-
-- **Async Processing**: Full async/await support
-- **Batch Processing**: Process multiple documents concurrently
-- **Memory Efficient**: Streaming processing for large documents
-- **Configurable Concurrency**: Control resource usage
-
-## Examples
-
-### Custom Pipeline
+The library provides optimized configurations for popular LLM providers:
 
 ```python
 from gundy_ai.data_pipelines import (
-    DataPipeline,
-    PipelineConfig,
-    PipelineStage
+    configure_for_openai,
+    configure_for_claude,
+    configure_for_local_llm,
 )
 
-# Create custom pipeline
-config = PipelineConfig(
-    name="custom_pipeline",
-    stages=[
-        PipelineStage.DOCUMENT_EXTRACTION,
-        PipelineStage.TEXT_CHUNKING,
-        PipelineStage.EMBEDDING_GENERATION
-    ]
-)
+# OpenAI GPT-4 (8,192 token limit)
+configure_for_openai("gpt-4")
 
-pipeline = DataPipeline(config)
+# Claude (100,000+ token limit)
+configure_for_claude()
 
-# Add custom processors
-pipeline.add_stage(PipelineStage.DOCUMENT_EXTRACTION, doc_processor)
-pipeline.add_stage(PipelineStage.TEXT_CHUNKING, chunker)
-pipeline.add_stage(PipelineStage.EMBEDDING_GENERATION, embedding_processor)
-
-# Process documents
-result = await pipeline.process_batch(file_paths)
+# Local model with custom context window
+configure_for_local_llm(context_window=4096)
 ```
 
-### Processing Results
+## 📄 Document Processing
+
+### Basic Mode (Default)
+
+Simple text extraction with minimal configuration:
 
 ```python
-# Access processing results
-for result in pipeline_result.results:
-    if result.success:
-        embedded_doc = result.data
-
-        print(f"Document: {embedded_doc.document.metadata.filename}")
-        print(f"Chunks: {embedded_doc.get_embedding_count()}")
-        print(f"Tokens: {embedded_doc.get_total_embeddings_tokens()}")
-
-        # Access individual chunks and embeddings
-        for i, (chunk, embedding) in enumerate(
-            zip(embedded_doc.document.chunks, embedded_doc.embeddings)
-        ):
-            print(f"Chunk {i}: {len(embedding.vector)} dimensions")
+processor = DocumentProcessor(
+    config=ProcessorConfig(name="basic_processor")
+)
 ```
 
-## Integration
+### Advanced Mode
 
-This library integrates seamlessly with other components in the ai-utils ecosystem:
+Multiple parsers, OCR, and text cleaning:
 
-- **Auth Service**: Secure API key management
-- **API Service Starter**: Use in FastAPI applications
-- **REST Client**: HTTP-based embedding services
+```python
+processor = DocumentProcessor(
+    config=ProcessorConfig(name="advanced_processor"),
+    pdf_parser_priority=["pymupdf", "pdfplumber", "pypdf", "ocr_fallback"],
+    enable_ocr_fallback=True,
+    enable_text_cleaning=True,
+    text_cleaning_strategy="auto"
+)
+```
 
-## License
+### Supported Formats
 
-Part of the gundy-ai-utils project. See main repository for license information.
+- **PDF**: Multiple parsers (PyMuPDF, pdfplumber, PyPDF2) with OCR fallback
+- **Word**: `.docx` and `.doc` files
+- **Web**: HTML and HTM files
+- **Markdown**: `.md` and `.markdown` files
+- **Text**: Plain text files
+
+## 🧩 Text Chunking Strategies
+
+### Semantic Chunking
+
+Groups text by meaning using embeddings:
+
+```python
+chunker = EnhancedTextChunker(
+    config=ProcessorConfig(name="semantic_chunker"),
+    strategy=ChunkingStrategy.SEMANTIC,
+    chunk_size=1000
+)
+```
+
+### Token-Aware Chunking
+
+Optimized for LLM context windows:
+
+```python
+chunker = EnhancedTextChunker(
+    config=ProcessorConfig(name="token_chunker"),
+    strategy=ChunkingStrategy.TOKEN_AWARE
+    # Automatically uses global configuration
+)
+```
+
+### Structure-Aware Chunking
+
+Preserves document hierarchy:
+
+```python
+chunker = EnhancedTextChunker(
+    config=ProcessorConfig(name="structure_chunker"),
+    strategy=ChunkingStrategy.STRUCTURE_AWARE,
+    chunk_size=800
+)
+```
+
+### Chunk Splitting
+
+Handle oversized chunks automatically:
+
+```python
+from gundy_ai.data_pipelines import ChunkSplittingFilter
+
+# Split chunks that exceed token limits
+splitter = ChunkSplittingFilter()
+final_doc = await splitter.filter_document(chunked_doc)
+```
+
+## ⚙️ Configuration System
+
+### Global Configuration
+
+Set once, use everywhere:
+
+```python
+from gundy_ai.data_pipelines import ChunkingConfig, ProcessingConfig, set_config
+
+config = ProcessingConfig(
+    chunking=ChunkingConfig(
+        max_tokens=8192,
+        target_tokens=4000,
+        overlap_tokens=200
+    )
+)
+set_config(config)
+
+# All components now use these settings
+```
+
+### Environment Variables
+
+Configure via environment:
+
+```bash
+export CHUNKING_MAX_TOKENS=8192
+export CHUNKING_TARGET_TOKENS=4000
+export ENABLE_OCR_FALLBACK=true
+export ENABLE_TEXT_CLEANING=true
+```
+
+### Component-Level Overrides
+
+Override global settings when needed:
+
+```python
+chunker = EnhancedTextChunker(
+    config=ProcessorConfig(name="custom_chunker"),
+    chunk_size=2000,  # Override global setting
+    strategy=ChunkingStrategy.SEMANTIC
+)
+```
+
+## 🔌 Advanced Features
+
+### OCR Integration
+
+Automatic OCR for scanned documents:
+
+```python
+processor = DocumentProcessor(
+    config=ProcessorConfig(name="ocr_processor"),
+    enable_ocr_fallback=True,
+    ocr_confidence_threshold=0.7,
+    min_text_extraction_ratio=0.1
+)
+```
+
+### Text Cleaning
+
+Remove artifacts and normalize text:
+
+```python
+processor = DocumentProcessor(
+    config=ProcessorConfig(name="cleaning_processor"),
+    enable_text_cleaning=True,
+    text_cleaning_strategy="auto"  # or "pdf", "ocr", "general"
+)
+```
+
+### Output Formats
+
+Multiple output formats supported:
+
+```python
+from gundy_ai.data_pipelines.output_formats import OutputManager, OutputFormat
+
+output_manager = OutputManager()
+await output_manager.write_document(
+    document=processed_doc,
+    output_format=OutputFormat.PARQUET,
+    output_path="output.parquet"
+)
+```
+
+### Plugin System
+
+Extend functionality with custom plugins:
+
+```python
+from gundy_ai.data_pipelines.plugins import PluginManager
+
+plugin_manager = PluginManager()
+plugin_manager.register_parser("custom_parser", MyCustomParser())
+```
+
+### Metrics and Observability
+
+Built-in monitoring and metrics:
+
+```python
+from gundy_ai.data_pipelines.metrics import MetricsCollector
+
+collector = MetricsCollector()
+# Metrics are automatically collected during processing
+report = collector.generate_report()
+```
+
+## 📊 Performance
+
+| Strategy          | Speed  | Memory    | Accuracy   | Use Case         |
+| ----------------- | ------ | --------- | ---------- | ---------------- |
+| Fixed Size        | ⚡⚡⚡ | 🟢 Low    | 🟡 Medium  | Simple documents |
+| Sentence Boundary | ⚡⚡   | 🟢 Low    | 🟢 High    | General purpose  |
+| Semantic          | ⚡     | 🟡 Medium | 🟢 Highest | RAG systems      |
+| Token-Aware       | ⚡⚡   | 🟢 Low    | 🟢 High    | LLM optimization |
+
+## 🛠️ CLI Usage
+
+Process documents from the command line:
+
+```bash
+# Basic processing
+python -m gundy_ai.data_pipelines.cli process document.pdf --output chunks.json
+
+# Advanced processing with OCR
+python -m gundy_ai.data_pipelines.cli process document.pdf \
+    --strategy semantic \
+    --chunk-size 1000 \
+    --enable-ocr \
+    --output-format parquet
+```
+
+## 📚 Examples
+
+The library includes comprehensive examples:
+
+- **`quick_start_guide.py`** - Simplified API demonstration
+- **`basic_usage.py`** - Basic document processing
+- **`advanced_pdf_demo.py`** - PDF processing with OCR and multiple parsers
+- **`advanced_chunking_demo.py`** - All chunking strategies with comparisons
+- **`centralized_config_demo.py`** - Configuration system usage
+- **`comprehensive_processing_demo.py`** - End-to-end pipeline
+- **`metrics_demo.py`** - Observability and monitoring
+- **`output_formats_demo.py`** - Different output formats
+- **`plugin_system_demo.py`** - Plugin system usage
+
+## 🔧 Advanced Usage
+
+### Custom Processing Pipeline
+
+```python
+from gundy_ai.data_pipelines import DataPipeline, PipelineStage
+
+pipeline = DataPipeline([
+    PipelineStage("document", DocumentProcessor(config)),
+    PipelineStage("chunking", EnhancedTextChunker(config)),
+    PipelineStage("embedding", EmbeddingProcessor(config)),
+])
+
+result = await pipeline.process("document.pdf")
+```
+
+### Batch Processing
+
+```python
+import asyncio
+from pathlib import Path
+
+async def process_directory(directory: Path):
+    processor = quick_setup("openai", "gpt-4")
+
+    tasks = []
+    for file_path in directory.glob("*.pdf"):
+        tasks.append(processor.process(str(file_path)))
+
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return results
+```
+
+### Custom Configuration
+
+```python
+from gundy_ai.data_pipelines import ChunkingConfig, ProcessingConfig
+
+custom_config = ProcessingConfig(
+    chunking=ChunkingConfig(
+        max_tokens=6000,
+        target_tokens=3000,
+        overlap_tokens=300,
+        semantic_similarity_threshold=0.8
+    ),
+    enable_ocr_fallback=True,
+    ocr_confidence_threshold=0.8,
+    enable_text_cleaning=True
+)
+
+set_config(custom_config)
+```
+
+## 🚨 Migration Guide
+
+### From EnhancedDocumentProcessor
+
+```python
+# Old way
+from gundy_ai.data_pipelines import EnhancedDocumentProcessor
+
+processor = EnhancedDocumentProcessor(config, ...)
+
+# New way (EnhancedDocumentProcessor still works but is deprecated)
+from gundy_ai.data_pipelines import DocumentProcessor
+
+processor = DocumentProcessor(
+    config=config,
+    pdf_parser_priority=["pymupdf", "pdfplumber", "pypdf"],
+    enable_ocr_fallback=True,
+    enable_text_cleaning=True
+)
+```
+
+### From Manual Configuration
+
+```python
+# Old way - configure each component separately
+chunker1 = EnhancedTextChunker(chunk_size=4000, overlap=200)
+chunker2 = EnhancedTextChunker(chunk_size=4000, overlap=200)
+
+# New way - configure once, use everywhere
+configure_for_openai("gpt-4")
+chunker1 = EnhancedTextChunker(config=ProcessorConfig(name="chunker1"))
+chunker2 = EnhancedTextChunker(config=ProcessorConfig(name="chunker2"))
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests and examples
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+- **Documentation**: Check the `examples/` directory for detailed usage examples
+- **Issues**: Report bugs and request features on GitHub
+- **Configuration**: Use the built-in configuration presets for common LLM providers
+
+## 🎯 Roadmap
+
+- [ ] Additional document formats (PowerPoint, Excel)
+- [ ] More embedding model integrations
+- [ ] Advanced semantic search capabilities
+- [ ] Real-time document processing
+- [ ] Cloud storage integrations
+- [ ] Performance optimizations
+
+---
+
+**Built with ❤️ for the AI community**
