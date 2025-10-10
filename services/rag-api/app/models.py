@@ -112,6 +112,9 @@ class ChatRequest(BaseModel):
     include_sources: bool = Field(
         default=True, description="Include source chunks in response"
     )
+    system_prompt: Optional[str] = Field(
+        default=None, description="Custom system prompt to override default"
+    )
 
 
 class SourceChunk(BaseModel):

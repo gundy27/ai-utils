@@ -27,6 +27,8 @@ export default function Home() {
     topK: 5,
     chunkMaxTokens: 512,
     userId: "web_user",
+    systemPrompt:
+      "You are a helpful assistant. Answer questions based on the provided context. If the context doesn't contain relevant information, say so clearly.",
   });
 
   const handleNewSession = () => {
@@ -82,6 +84,7 @@ export default function Home() {
         settings.topK,
         settings.model,
         true,
+        settings.systemPrompt,
       );
 
       const assistantMessage: Message = {

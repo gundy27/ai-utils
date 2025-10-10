@@ -107,6 +107,25 @@ export default function SystemView({ settings, onSettingsChange }: Props) {
                 Identifier for tracking sessions and documents
               </p>
             </div>
+
+            {/* System Prompt */}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                System Prompt
+              </label>
+              <textarea
+                value={settings.systemPrompt}
+                onChange={(e) =>
+                  handleSettingChange("systemPrompt", e.target.value)
+                }
+                rows={6}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                placeholder="You are a helpful assistant..."
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Customize how the AI assistant behaves and responds to queries
+              </p>
+            </div>
           </div>
         </div>
 

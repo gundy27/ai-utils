@@ -379,6 +379,7 @@ class RAGPipeline:
         top_k: int = 5,
         model: str = "gpt-4o-mini",
         include_history: bool = True,
+        system_prompt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Chat with RAG system.
 
@@ -439,7 +440,8 @@ class RAGPipeline:
             ]
 
         # Construct LLM prompt
-        system_message = (
+        # Use custom system prompt if provided, otherwise use default
+        system_message = system_prompt or (
             "You are a helpful assistant. Answer questions based on the provided context. "
             "If the context doesn't contain relevant information, say so clearly."
         )

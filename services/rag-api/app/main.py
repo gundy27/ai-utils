@@ -401,6 +401,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
             user_id=request.user_id,
             top_k=request.top_k,
             model=request.model,
+            system_prompt=request.system_prompt,
         )
 
         # Convert to response format

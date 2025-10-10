@@ -46,6 +46,7 @@ export class RAGAPIClient {
     topK: number = 5,
     model: string = "gpt-4o-mini",
     includeSources: boolean = true,
+    systemPrompt?: string,
   ): Promise<ChatResponse> {
     const response = await fetch(`${this.baseUrl}/chat`, {
       method: "POST",
@@ -59,6 +60,7 @@ export class RAGAPIClient {
         top_k: topK,
         model,
         include_sources: includeSources,
+        system_prompt: systemPrompt,
       }),
     });
 
