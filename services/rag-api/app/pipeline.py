@@ -84,7 +84,11 @@ class RAGPipeline:
         # Initialize metadata store
         self.metadata_store = MetadataStore(metadata_db_url)
 
-        # Initialize LLM client
+        # Initialize LLM client (set env var for OpenAIClient)
+        import os
+
+        if openai_api_key:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
         self.llm = OpenAIClient()
 
         logger.info("rag_pipeline_initialized")
@@ -467,7 +471,7 @@ class RAGPipeline:
             model=model,
             tokens_used=estimated_tokens,
             cost_usd=estimated_cost,
-            sources_json={"chunks": [r.id for r in search_results]},
+            sources={"chunks": [r.id for r in search_results]},
         )
 
         processing_time_ms = (time.time() - start_time) * 1000

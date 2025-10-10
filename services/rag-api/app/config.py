@@ -1,7 +1,5 @@
 """Configuration for RAG API."""
 
-import os
-
 from pydantic_settings import BaseSettings
 
 
@@ -21,7 +19,7 @@ class Settings(BaseSettings):
     chunk_overlap_tokens: int = 50
 
     # Embedding Settings
-    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_api_key: str  # No default - must be set in .env
     embedding_model: str = "text-embedding-3-small"
 
     # LLM Settings

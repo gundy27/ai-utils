@@ -11,3 +11,5 @@ __pycache__/
 *.py[cod]
 
 services/rag-api/vector_db/
+services/rag-api/metadata.db
+services/rag-api/.env
