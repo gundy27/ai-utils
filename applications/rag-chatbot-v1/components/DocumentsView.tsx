@@ -17,9 +17,13 @@ interface Document {
 
 interface Props {
   onUploadComplete?: (doc: DocumentIngestResponse) => void;
+  userId?: string;
 }
 
-export default function DocumentsView({ onUploadComplete }: Props) {
+export default function DocumentsView({
+  onUploadComplete,
+  userId = "web_user",
+}: Props) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,13 +31,13 @@ export default function DocumentsView({ onUploadComplete }: Props) {
 
   useEffect(() => {
     loadDocuments();
-  }, []);
+  }, [userId]);
 
   const loadDocuments = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await apiClient.listDocuments("web_user");
+      const data = await apiClient.listDocuments(userId);
       setDocuments(data.documents || []);
     } catch (err) {
       console.error("Failed to load documents:", err);
@@ -92,7 +96,10 @@ export default function DocumentsView({ onUploadComplete }: Props) {
         {/* Upload Section */}
         {showUpload && (
           <div className="mb-8">
-            <DocumentUpload onUploadComplete={handleUploadComplete} />
+            <DocumentUpload
+              onUploadComplete={handleUploadComplete}
+              userId={userId}
+            />
           </div>
         )}
 

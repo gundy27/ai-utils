@@ -190,7 +190,9 @@ async def get_stats() -> Dict[str, Any]:
 
 @app.post("/documents/ingest", response_model=DocumentIngestResponse)
 async def ingest_document(
-    file: UploadFile = File(...), metadata: str = Form(default="{}")
+    file: UploadFile = File(...),
+    metadata: str = Form(default="{}"),
+    user_id: str = Form(default="anonymous"),
 ) -> DocumentIngestResponse:
     """Ingest a document into the RAG system.
 
@@ -203,6 +205,7 @@ async def ingest_document(
     Args:
         file: File to upload (TXT, PDF, DOCX)
         metadata: Optional JSON metadata for the document
+        user_id: User identifier (defaults to "anonymous")
 
     Returns:
         DocumentIngestResponse with processing results
@@ -231,7 +234,7 @@ async def ingest_document(
         result = await pipeline.ingest_document(
             file.filename or "unknown",
             content_b64,
-            user_id="anonymous",
+            user_id=user_id,
             metadata=metadata_dict,
         )
 

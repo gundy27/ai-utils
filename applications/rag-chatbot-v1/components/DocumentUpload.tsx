@@ -6,19 +6,27 @@ import { DocumentIngestResponse } from "@/lib/types";
 
 interface Props {
   onUploadComplete: (doc: DocumentIngestResponse) => void;
+  userId?: string;
 }
 
-export default function DocumentUpload({ onUploadComplete }: Props) {
+export default function DocumentUpload({
+  onUploadComplete,
+  userId = "web_user",
+}: Props) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
   const handleFile = async (file: File) => {
     setUploading(true);
     try {
-      const result = await apiClient.uploadDocument(file, {
-        source: "ui_upload",
-        uploaded_at: new Date().toISOString(),
-      });
+      const result = await apiClient.uploadDocument(
+        file,
+        {
+          source: "ui_upload",
+          uploaded_at: new Date().toISOString(),
+        },
+        userId,
+      );
       onUploadComplete(result);
     } catch (error) {
       alert(`Upload failed: ${error}`);

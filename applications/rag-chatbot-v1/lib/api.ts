@@ -19,10 +19,12 @@ export class RAGAPIClient {
   async uploadDocument(
     file: File,
     metadata?: Record<string, any>,
+    userId: string = "web_user",
   ): Promise<DocumentIngestResponse> {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("metadata", JSON.stringify(metadata || {}));
+    formData.append("user_id", userId);
 
     const response = await fetch(`${this.baseUrl}/documents/ingest`, {
       method: "POST",

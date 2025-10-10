@@ -178,7 +178,10 @@ export default function Home() {
           )}
 
           {currentView === "documents" && (
-            <DocumentsView onUploadComplete={handleUploadComplete} />
+            <DocumentsView
+              onUploadComplete={handleUploadComplete}
+              userId={settings.userId}
+            />
           )}
 
           {currentView === "analytics" && (
