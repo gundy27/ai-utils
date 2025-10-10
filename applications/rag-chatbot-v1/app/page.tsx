@@ -47,9 +47,8 @@ export default function Home() {
   };
 
   const handleUploadComplete = (doc: DocumentIngestResponse) => {
-    alert(
-      `Document uploaded!\n\nID: ${doc.document_id}\nChunks: ${doc.chunks_created}\nTokens: ${doc.total_tokens}\nCost: $${doc.estimated_cost_usd.toFixed(6)}`,
-    );
+    // Success feedback is now shown in the upload component's status display
+    // No need for alert popup
   };
 
   const handleSendMessage = async (message: string) => {
