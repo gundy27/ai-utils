@@ -11,11 +11,14 @@ from fastapi.responses import JSONResponse
 
 from .config import settings
 from .models import (
+    ChatRequest,
+    ChatResponse,
     DocumentIngestResponse,
     HealthResponse,
     SearchRequest,
     SearchResponse,
     SearchResultItem,
+    SourceChunk,
 )
 from .pipeline import RAGPipeline
 
@@ -54,11 +57,15 @@ async def startup_event():
         pipeline = RAGPipeline(
             vector_db_path=settings.vector_db_path,
             collection_name=settings.collection_name,
+            metadata_db_url=settings.metadata_db_url,
             openai_api_key=settings.openai_api_key,
             embedding_model=settings.embedding_model,
             chunk_max_tokens=settings.chunk_max_tokens,
             chunk_overlap_tokens=settings.chunk_overlap_tokens,
         )
+
+        # Initialize metadata store schema
+        await pipeline.metadata_store.initialize()
 
         logger.info("api_startup_complete")
     except Exception as e:
@@ -221,8 +228,11 @@ async def ingest_document(
             metadata_dict = {}
 
         # Ingest document
-        result = pipeline.ingest_document(
-            file.filename or "unknown", content_b64, metadata_dict
+        result = await pipeline.ingest_document(
+            file.filename or "unknown",
+            content_b64,
+            user_id="anonymous",
+            metadata=metadata_dict,
         )
 
         return DocumentIngestResponse(**result)
@@ -315,9 +325,6 @@ async def list_documents() -> Dict[str, Any]:
 async def delete_document(document_id: str) -> Dict[str, Any]:
     """Delete a document and all its chunks.
 
-    Note: This is a simplified implementation.
-    In production, maintain a document->chunks index.
-
     Args:
         document_id: Document identifier
 
@@ -328,14 +335,70 @@ async def delete_document(document_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
 
     try:
-        chunks_deleted = pipeline.delete_document(document_id)
+        # Get chunk IDs from metadata store
+        chunk_ids = await pipeline.metadata_store.delete_document(document_id)
+
+        # Delete from vectorstore
+        if chunk_ids:
+            pipeline.vector_store.delete(chunk_ids)
 
         return {
             "document_id": document_id,
-            "chunks_deleted": chunks_deleted,
-            "note": "Full document deletion requires document->chunks index",
+            "chunks_deleted": len(chunk_ids),
+            "status": "deleted",
         }
 
     except Exception as e:
         logger.error("delete_document_error", error=str(e), document_id=document_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest) -> ChatResponse:
+    """Chat with RAG system.
+
+    Uses semantic search to find relevant context, then generates an answer
+    using an LLM. Maintains conversation history across sessions.
+
+    Args:
+        request: Chat request with message and parameters
+
+    Returns:
+        ChatResponse with answer and sources
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    try:
+        # Chat with pipeline
+        result = await pipeline.chat(
+            message=request.message,
+            session_id=request.session_id,
+            user_id=request.user_id,
+            top_k=request.top_k,
+            model=request.model,
+        )
+
+        # Convert to response format
+        sources = [
+            SourceChunk(
+                chunk_id=s["chunk_id"],
+                score=s["score"],
+                text=s.get("text") if request.include_sources else None,
+            )
+            for s in result["sources"]
+        ]
+
+        return ChatResponse(
+            answer=result["answer"],
+            session_id=result["session_id"],
+            sources=sources,
+            model=result["model"],
+            tokens_used=result["tokens_used"],
+            cost_usd=result["cost_usd"],
+            processing_time_ms=result["processing_time_ms"],
+        )
+
+    except Exception as e:
+        logger.error("chat_error", error=str(e))
         raise HTTPException(status_code=500, detail=str(e)) from e

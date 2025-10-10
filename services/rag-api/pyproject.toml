@@ -19,6 +19,8 @@ gundy-ai-extractors = {path = "../../libs/extractors", develop = true}
 gundy-ai-chunker = {path = "../../libs/chunker", develop = true}
 gundy-ai-embeddings = {path = "../../libs/embeddings", extras = ["openai"], develop = true}
 gundy-ai-vectorstore = {path = "../../libs/vectorstore", extras = ["chromadb"], develop = true}
+gundy-ai-metadata-store = {path = "../../libs/metadata-store", extras = ["sqlite"], develop = true}
+gundy_ai-openai-wrapper = {path = "../../libs/llm_wrappers/openai_wrapper", develop = true}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4"

@@ -10,6 +10,8 @@ import structlog
 from gundy_ai.chunker import TokenAwareChunker
 from gundy_ai.embeddings import OpenAIEmbeddingProvider
 from gundy_ai.extractors import ParserRegistry, PDFParser, TXTParser
+from gundy_ai.llm import OpenAIClient
+from gundy_ai.metadata_store import MetadataStore
 from gundy_ai.vectorstore import ChromaDBAdapter, QueryResult
 
 logger = structlog.get_logger(__name__)
@@ -25,6 +27,7 @@ class RAGPipeline:
         self,
         vector_db_path: str = "./vector_db",
         collection_name: str = "documents",
+        metadata_db_url: str = "sqlite+aiosqlite:///./metadata.db",
         openai_api_key: Optional[str] = None,
         embedding_model: str = "text-embedding-3-small",
         chunk_max_tokens: int = 512,
@@ -35,6 +38,7 @@ class RAGPipeline:
         Args:
             vector_db_path: Path to vector database
             collection_name: Collection name for vectors
+            metadata_db_url: Metadata store database URL
             openai_api_key: OpenAI API key (or use OPENAI_API_KEY env var)
             embedding_model: Embedding model to use
             chunk_max_tokens: Maximum tokens per chunk
@@ -77,12 +81,19 @@ class RAGPipeline:
             persist_directory=vector_db_path, collection_name=collection_name
         )
 
+        # Initialize metadata store
+        self.metadata_store = MetadataStore(metadata_db_url)
+
+        # Initialize LLM client
+        self.llm = OpenAIClient()
+
         logger.info("rag_pipeline_initialized")
 
-    def ingest_document(
+    async def ingest_document(
         self,
         file_name: str,
         file_content_base64: str,
+        user_id: str = "anonymous",
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Ingest a document through the complete pipeline.
@@ -90,6 +101,7 @@ class RAGPipeline:
         Args:
             file_name: Name of the file
             file_content_base64: Base64 encoded file content
+            user_id: User identifier
             metadata: Optional document metadata
 
         Returns:
@@ -177,6 +189,19 @@ class RAGPipeline:
             )
 
             logger.info("vectorstore_complete", vectors=len(chunk_ids))
+
+            # Track in metadata store
+            await self.metadata_store.create_document(
+                name=file_name,
+                user_id=user_id,
+                chunks=chunk_ids,
+                status="completed",
+                file_size=len(file_bytes),
+                file_type=file_ext,
+                metadata=metadata,
+            )
+
+            logger.info("metadata_store_complete", document_id=document_id)
 
             processing_time_ms = (time.time() - start_time) * 1000
 
@@ -340,6 +365,137 @@ class RAGPipeline:
         health["status"] = "healthy" if all_healthy else "unhealthy"
 
         return health
+
+    async def chat(
+        self,
+        message: str,
+        session_id: Optional[str] = None,
+        user_id: str = "anonymous",
+        top_k: int = 5,
+        model: str = "gpt-4o-mini",
+        include_history: bool = True,
+    ) -> Dict[str, Any]:
+        """Chat with RAG system.
+
+        Args:
+            message: User message
+            session_id: Optional session ID for conversation history
+            user_id: User identifier
+            top_k: Number of context chunks to retrieve
+            model: LLM model to use
+            include_history: Include conversation history in context
+
+        Returns:
+            Dictionary with answer, sources, and metadata
+        """
+        start_time = time.time()
+
+        # Get or create session
+        if session_id:
+            session = await self.metadata_store.get_session(session_id)
+            if not session:
+                session = await self.metadata_store.create_session(user_id=user_id)
+        else:
+            session = await self.metadata_store.create_session(user_id=user_id)
+
+        logger.info("chat_start", session_id=session.id, user_id=user_id)
+
+        # Save user message
+        await self.metadata_store.add_message(
+            session_id=session.id, role="user", content=message
+        )
+
+        # Search for relevant context
+        search_results = self.search(query=message, top_k=top_k, include_text=True)
+
+        # Build context from search results
+        context_parts = [
+            f"[Source {i+1}]: {r.text}" for i, r in enumerate(search_results)
+        ]
+        context = (
+            "\n\n".join(context_parts)
+            if context_parts
+            else "No relevant documents found."
+        )
+
+        # Get conversation history if requested
+        history_messages = []
+        if include_history and session.message_count > 0:
+            history = await self.metadata_store.get_conversation_history(
+                session.id,
+                limit=6,  # Last 3 exchanges
+            )
+            # Exclude the message we just added
+            history_messages = [
+                {"role": msg.role, "content": msg.content}
+                for msg in history[:-1]  # Exclude last (current user message)
+            ]
+
+        # Construct LLM prompt
+        system_message = (
+            "You are a helpful assistant. Answer questions based on the provided context. "
+            "If the context doesn't contain relevant information, say so clearly."
+        )
+
+        messages = [{"role": "system", "content": system_message}]
+
+        # Add history
+        messages.extend(history_messages)
+
+        # Add context and current question
+        user_prompt = f"Context from documents:\n\n{context}\n\nQuestion: {message}"
+        messages.append({"role": "user", "content": user_prompt})
+
+        # Call LLM
+        answer = self.llm.chat(model=model, messages=messages, max_tokens=500)
+
+        # Estimate tokens (rough approximation)
+        # In production, get from LLM response
+        total_tokens = len(message.split()) + len(answer.split()) + len(context.split())
+        estimated_tokens = int(total_tokens * 1.3)  # Rough token estimate
+
+        # Estimate cost (for gpt-4o-mini: $0.15/1M input, $0.60/1M output)
+        input_cost = (estimated_tokens * 0.15) / 1_000_000
+        output_cost = (len(answer.split()) * 1.3 * 0.60) / 1_000_000
+        estimated_cost = input_cost + output_cost
+
+        # Save assistant message
+        await self.metadata_store.add_message(
+            session_id=session.id,
+            role="assistant",
+            content=answer,
+            model=model,
+            tokens_used=estimated_tokens,
+            cost_usd=estimated_cost,
+            sources_json={"chunks": [r.id for r in search_results]},
+        )
+
+        processing_time_ms = (time.time() - start_time) * 1000
+
+        logger.info(
+            "chat_complete",
+            session_id=session.id,
+            tokens=estimated_tokens,
+            cost=estimated_cost,
+            processing_time_ms=processing_time_ms,
+        )
+
+        return {
+            "answer": answer,
+            "session_id": session.id,
+            "sources": [
+                {
+                    "chunk_id": r.id,
+                    "score": r.score,
+                    "text": r.text if include_history else None,
+                }
+                for r in search_results
+            ],
+            "model": model,
+            "tokens_used": estimated_tokens,
+            "cost_usd": estimated_cost,
+            "processing_time_ms": processing_time_ms,
+        }
 
     def get_stats(self) -> Dict[str, Any]:
         """Get pipeline statistics.

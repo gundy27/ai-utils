@@ -16,12 +16,16 @@ class Settings(BaseSettings):
     # Pipeline Settings
     vector_db_path: str = "./vector_db"
     collection_name: str = "documents"
+    metadata_db_url: str = "sqlite+aiosqlite:///./metadata.db"
     chunk_max_tokens: int = 512
     chunk_overlap_tokens: int = 50
 
     # Embedding Settings
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     embedding_model: str = "text-embedding-3-small"
+
+    # LLM Settings
+    default_chat_model: str = "gpt-4o-mini"
 
     # CORS Settings
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8000"]

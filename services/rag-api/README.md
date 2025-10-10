@@ -47,6 +47,44 @@ open http://localhost:8000/docs
 
 ## API Endpoints
 
+### Chat
+
+**POST `/chat`** 🆕
+Chat with your documents using RAG.
+
+Request:
+
+```json
+{
+  "message": "What is machine learning?",
+  "session_id": "session_abc123",
+  "user_id": "user123",
+  "top_k": 5,
+  "model": "gpt-4o-mini",
+  "include_sources": true
+}
+```
+
+Response:
+
+```json
+{
+  "answer": "Machine learning is a subset of AI that...",
+  "session_id": "session_abc123",
+  "sources": [
+    {
+      "chunk_id": "doc_abc123_chunk_0",
+      "score": 0.95,
+      "text": "Machine learning is..."
+    }
+  ],
+  "model": "gpt-4o-mini",
+  "tokens_used": 250,
+  "cost_usd": 0.00025,
+  "processing_time_ms": 850.5
+}
+```
+
 ### Document Management
 
 **POST `/documents/ingest`**
@@ -144,6 +182,8 @@ Environment variables (see `env.example`):
 | `CHUNK_MAX_TOKENS`     | `512`                    | Maximum tokens per chunk |
 | `CHUNK_OVERLAP_TOKENS` | `50`                     | Overlap between chunks   |
 | `EMBEDDING_MODEL`      | `text-embedding-3-small` | OpenAI embedding model   |
+| `METADATA_DB_URL`      | `sqlite+aiosqlite:...`   | Metadata database URL    |
+| `DEFAULT_CHAT_MODEL`   | `gpt-4o-mini`            | Default LLM for chat     |
 
 ## Testing
 
@@ -205,15 +245,36 @@ with open("document.pdf", "rb") as f:
     )
     doc_id = response.json()["document_id"]
 
-# 2. Search
+# 2. Chat with your documents
+response = client.post(
+    "/chat",
+    json={
+        "message": "What is the main topic?",
+        "user_id": "user123",
+        "top_k": 5
+    }
+)
+chat_data = response.json()
+print(f"Answer: {chat_data['answer']}")
+print(f"Session: {chat_data['session_id']}")
+print(f"Cost: ${chat_data['cost_usd']:.6f}")
+
+# 3. Continue conversation (with history)
+response = client.post(
+    "/chat",
+    json={
+        "message": "Tell me more about that",
+        "session_id": chat_data['session_id'],  # Same session
+        "user_id": "user123"
+    }
+)
+
+# 4. Search (alternative to chat)
 response = client.post(
     "/search",
     json={"query": "What is the main topic?", "top_k": 3}
 )
 results = response.json()["results"]
-
-for result in results:
-    print(f"{result['score']:.3f}: {result['text'][:100]}")
 ```
 
 ## Limitations & Future Improvements

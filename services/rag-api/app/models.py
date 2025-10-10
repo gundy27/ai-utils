@@ -94,3 +94,43 @@ class HealthResponse(BaseModel):
         description="Health status of each component"
     )
     timestamp: str = Field(description="Health check timestamp")
+
+
+# Chat Models
+class ChatRequest(BaseModel):
+    """Request to chat with RAG."""
+
+    message: str = Field(description="User message")
+    session_id: Optional[str] = Field(
+        default=None, description="Session ID for conversation history"
+    )
+    user_id: str = Field(default="anonymous", description="User identifier")
+    top_k: int = Field(
+        default=5, ge=1, le=20, description="Number of context chunks to retrieve"
+    )
+    model: str = Field(default="gpt-4o-mini", description="LLM model to use")
+    include_sources: bool = Field(
+        default=True, description="Include source chunks in response"
+    )
+
+
+class SourceChunk(BaseModel):
+    """Source chunk referenced in answer."""
+
+    chunk_id: str = Field(description="Chunk identifier")
+    score: float = Field(description="Similarity score")
+    text: Optional[str] = Field(default=None, description="Chunk text")
+
+
+class ChatResponse(BaseModel):
+    """Response from chat."""
+
+    answer: str = Field(description="LLM generated answer")
+    session_id: str = Field(description="Session identifier")
+    sources: List[SourceChunk] = Field(
+        default_factory=list, description="Source chunks used"
+    )
+    model: str = Field(description="Model used")
+    tokens_used: int = Field(description="Total tokens used")
+    cost_usd: float = Field(description="Estimated cost in USD")
+    processing_time_ms: float = Field(description="Processing time in milliseconds")
