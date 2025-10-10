@@ -1,0 +1,43 @@
+[tool.poetry]
+name = "gundy-ai-metadata-store"
+version = "0.1.0"
+description = "Metadata and session management for RAG applications"
+authors = ["ai-utils <team@ai-utils.dev>"]
+readme = "README.md"
+packages = [{include = "gundy_ai", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+sqlalchemy = ">=2.0,<3.0"
+pydantic = ">=2.5,<3.0"
+structlog = ">=23.2,<25.0"
+alembic = ">=1.12,<2.0"
+greenlet = ">=3.0,<4.0"
+# Optional database drivers
+aiosqlite = {version = ">=0.19,<1.0", optional = true}
+asyncpg = {version = ">=0.29,<1.0", optional = true}
+psycopg2-binary = {version = ">=2.9,<3.0", optional = true}
+
+[tool.poetry.extras]
+sqlite = ["aiosqlite"]
+postgres = ["asyncpg", "psycopg2-binary"]
+all = ["aiosqlite", "asyncpg", "psycopg2-binary"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-asyncio = "^0.21"
+pytest-cov = "^4.1"
+aiosqlite = ">=0.19,<1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --cov=gundy_ai.metadata_store --cov-report=term-missing"
+asyncio_mode = "auto"
+
