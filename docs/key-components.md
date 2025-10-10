@@ -86,7 +86,7 @@ Below are the minimum platform components you should build or verify exist befor
 
 ## 2.4 Embedding Service (Provider-agnostic)
 
-**Status**: ⏳ Not Started | **Priority**: P0 (Critical)
+**Status**: ✅ Built | **Priority**: P0 (Critical)
 
 **Responsibility**: Compute embeddings for chunks via provider adapter.
 
@@ -105,7 +105,17 @@ Below are the minimum platform components you should build or verify exist befor
 - `audit.event` for `embedding.requested`
 - Include: `provider`, `model`, `batch_size`
 
-**Next Steps**: Build provider-agnostic adapter system. Start with OpenAI, make pluggable.
+**Current State**: ✅ Fully implemented in `libs/embeddings/` with:
+
+- **BaseEmbeddingProvider** interface for provider-agnostic design
+- **OpenAI Provider**: Supports text-embedding-3-small/large and ada-002
+- Automatic batch processing (configurable batch size)
+- Built-in retries with exponential backoff (via OpenAI client)
+- Cost tracking and estimation per request
+- Comprehensive audit logging for all operations
+- 19 tests passing with 88% coverage
+- Complete examples including full pipeline integration
+- Integrates seamlessly with extractors and chunker libraries
 
 ## 2.5 Vector Store Adapter
 
