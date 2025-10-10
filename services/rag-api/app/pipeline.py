@@ -507,8 +507,14 @@ class RAGPipeline:
         Returns:
             Dictionary with pipeline stats
         """
+        try:
+            vector_count = self.vector_store.count()
+        except Exception as e:
+            logger.warning("vector_count_failed", error=str(e))
+            vector_count = 0
+
         return {
-            "vector_count": self.vector_store.count(),
+            "vector_count": vector_count,
             "parsers_registered": len(self.parser_registry.list_parsers()),
             "supported_file_types": self.parser_registry.list_supported_types(),
             "chunk_max_tokens": self.chunker.max_tokens,

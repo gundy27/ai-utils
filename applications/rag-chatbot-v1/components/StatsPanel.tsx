@@ -29,6 +29,15 @@ export default function StatsPanel({
       setStats(data);
     } catch (error) {
       console.error("Failed to load stats:", error);
+      // Set default stats on error to prevent UI from breaking
+      setStats({
+        vector_count: 0,
+        parsers_registered: 0,
+        supported_file_types: [],
+        chunk_max_tokens: 512,
+        embedding_model: "unknown",
+        embedding_dimensions: 1536,
+      });
     }
   };
 
