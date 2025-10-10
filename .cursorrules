@@ -1,0 +1,118 @@
+# AI-Utils Project Rules
+
+## Project Overview
+
+AI-utils is a collection of stable, well-tested utilities and libraries for building AI applications such as production-ready RAG chatbots.
+
+## Core Principles
+
+- This document is intended to be the single source of truth for engineers, the Cursor agent, and reviewers when implementing new features for AI applications, RAG chatbots, and related platform components. It exists to:
+- Ensure work is API-first, secure-by-default, auditable, and RBAC-aware.
+- Provide reusable interfaces and component boundaries to avoid version drift and dependency hell.
+- Start small, test incrementally
+- Build only what's needed, validate before expanding
+- Keep stable code separate from experimental work
+- Maintain clean git history with meaningful commits
+
+## Guardrails
+
+### 3.0 Versioning
+
+- Use relaxed version constraints to avoid conflicts (e.g., `>=X.Y,<Z.0`)
+- Align dependency versions across all libs in the monorepo
+- Test dependency changes across all affected modules
+- Document version requirements clearly
+
+### 3.1 Security & access control
+
+- Enforce API-first: design a small OpenAPI spec before writing implementation code.
+- Least privilege: any service identity or user must have the minimal RBAC role needed.
+- All secrets must be stored in Secrets Manager, not in environment variables or checked into source.
+- Transport encryption required (HTTPS/TLS). Encrypt sensitive fields at rest (DB column-level or disk-level encryption).
+- Input validation: fail fast and return 4xx errors for bad inputs.
+
+### 3.2 Audit & observability
+
+- Any write or access to sensitive resource (ingest, vector upsert, chat transcript access) emits an audit event.
+- Audit events must include trace_id, actor_id, action, resource, outcome, timestamp.
+- Retention & redaction policy: PII must be redacted using deterministic placeholders where necessary.
+
+### 3.3 Data handling & privacy
+
+- Explicit metadata for documents: source, owner_id, allowed_roles, retention_policy.
+- Provide a deletion/unindex API: DELETE /documents/{id} must remove vector and metadata and emit audit.event.
+- Default retention policy of 90 days for ingested raw content unless overridden.
+
+### 3.4 Model & provider governance
+
+- Model choices must be recorded: which model, why, cost estimate, and expected latency.
+- Provide a mechanism to switch model/provider at runtime via config and feature flags.
+
+### 3.5 Reliability & idempotency
+
+- All background jobs must be idempotent and re-runnable.
+- Provide job_id and idempotency_key on ingestion endpoints.
+
+### 3.6 Dependency & version management
+
+- Pin dependencies; include lockfiles and a daily/weekly dependency health check job.
+- For adapters and plugins, require a minimum of semantic versioning and a compatibility matrix.
+
+### 3.7 Testing & QA
+
+- All libs must have tests
+- Unit tests for adapters and chunking logic.
+- Use structured logging throughout
+- Contract tests for all adapters (vector store, embedding provider) — run in CI against a stable test instance.
+- Integration test that runs an end-to-end ingest -> embed -> query flow using a small sample doc.
+
+### 3.8 Cost & rate controls
+
+- Rate-limit heavy endpoints (e.g., embedding, model calls) and expose cost attribution per user.
+- Provide quotas per org/user and quotas should be enforced before expensive operations.
+
+### 3.9 Deployment & runbooks
+
+- Provide runbooks for common failures (embedding provider down, queue backlog, OOM), and a rollback plan.
+- Expose health, readiness, and metrics endpoints.
+
+### 3.10 Architecture Guidelines
+
+- Stable libraries live in `libs/`
+- Services live in `services/`
+- Templates provide clean starting points in `templates/`
+- Experimental work should be in separate repos or clearly marked branches
+
+## Planning Mode Requirements
+
+### 4.0 Before Implementation
+
+- Always create a clear, actionable plan
+- Break complex tasks into smaller, verifiable steps
+- Consider dependencies and potential conflicts
+- Identify which files will be modified
+
+### 4.1 During Implementation
+
+- Test incrementally at each step
+- Validate assumptions early
+- Keep commits focused and atomic
+- Update documentation as you go but don't generate a new Markdown for each successful plan. Update existing READMEs and only create new documentation if it is necessary for someone else to be able to successfully build/run the software
+
+### 4.2 After Implementation
+
+- Verify all tests pass
+- Provide step by step guide to user to test as well as recommendation on what they should be looking for
+- Check for linter errors
+- Ensure clean git status
+- Update documentation for any new patterns or decisions
+- Update ./docs/key-components.md file to indicate which components have been built and which remain
+
+## Session Lessons Learned
+
+### Recent Session (Oct 2025)
+
+- Building too much before validation led to complexity
+- Template packaging has challenges - prefer direct lib usage
+- Dependency version conflicts require systematic resolution
+- Large refactors need incremental testing at each stage
