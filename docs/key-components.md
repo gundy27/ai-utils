@@ -119,7 +119,7 @@ Below are the minimum platform components you should build or verify exist befor
 
 ## 2.5 Vector Store Adapter
 
-**Status**: ⏳ Not Started | **Priority**: P0 (Critical)
+**Status**: ✅ Built | **Priority**: P0 (Critical)
 
 **Responsibility**: Upsert/query/delete embeddings and metadata.
 
@@ -141,7 +141,20 @@ Below are the minimum platform components you should build or verify exist befor
 - `vectorstore.upsert` and `vectorstore.query` events
 - Redact embeddings in logs; include `id`, `top_k`, `filter`, `latency`
 
-**Next Steps**: Build adapter interface and implement Chroma adapter first (simpler), then FAISS.
+**Current State**: ✅ Fully implemented in `libs/vectorstore/` with:
+
+- **BaseVectorStore** interface for provider-agnostic design
+- **ChromaDB Adapter**: Full CRUD operations with persistent storage
+- Upsert, query, delete, count, clear operations
+- Metadata filtering with ChromaDB where clauses
+- Cosine, L2, and inner product distance metrics
+- Similarity search with configurable top_k
+- Health checks with collection stats
+- Comprehensive audit logging (embeddings redacted for security)
+- Auto-persistence to disk
+- 32 tests passing with 80% coverage
+- Complete examples including full RAG pipeline
+- Ready for additional adapters (FAISS, Pinecone, Weaviate, Supabase)
 
 ## 2.6 Metadata Store / Chat Session Store
 
