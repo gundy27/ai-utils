@@ -49,6 +49,22 @@ export interface Stats {
   embedding_dimensions: number;
 }
 
+export type ViewType = "chat" | "documents" | "analytics" | "system";
+
+export interface Settings {
+  model: string;
+  topK: number;
+  chunkMaxTokens: number;
+  userId: string;
+}
+
+export interface HealthStatus {
+  api: boolean;
+  vectorStore: boolean;
+  parsers: boolean;
+  embeddings: boolean;
+}
+
 export interface Message {
   role: "user" | "assistant" | "system";
   content: string;

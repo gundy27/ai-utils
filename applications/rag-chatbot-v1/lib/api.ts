@@ -104,6 +104,25 @@ export class RAGAPIClient {
     return response.json();
   }
 
+  async checkHealth(): Promise<any> {
+    try {
+      const stats = await this.getStats();
+      return {
+        api: true,
+        vectorStore: stats.vector_count !== undefined,
+        parsers: stats.parsers_registered > 0,
+        embeddings: stats.embedding_model !== "unknown",
+      };
+    } catch (error) {
+      return {
+        api: false,
+        vectorStore: false,
+        parsers: false,
+        embeddings: false,
+      };
+    }
+  }
+
   async getHealth(): Promise<any> {
     const response = await fetch(`${this.baseUrl}/health`);
 
