@@ -180,6 +180,7 @@ class RAGPipeline:
                     "document_name": file_name,
                     "chunk_index": i,
                     "token_count": chunk.token_count,
+                    "user_id": user_id,
                     **(metadata or {}),
                 }
                 for i, chunk in enumerate(all_chunks)
@@ -409,8 +410,10 @@ class RAGPipeline:
             session_id=session.id, role="user", content=message
         )
 
-        # Search for relevant context
-        search_results = self.search(query=message, top_k=top_k, include_text=True)
+        # Search for relevant context - filter by user_id for RBAC
+        search_results = self.search(
+            query=message, top_k=top_k, filter={"user_id": user_id}, include_text=True
+        )
 
         # Build context from search results
         context_parts = [
