@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "gundy-ai-job-queue"
+version = "0.1.0"
+description = "Background job queue for RAG applications"
+authors = ["ai-utils <team@ai-utils.dev>"]
+readme = "README.md"
+packages = [{include = "gundy_ai", from = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+pydantic = ">=2.5,<3.0"
+structlog = ">=23.2,<25.0"
+# Optional backends
+redis = {version = ">=5.0,<6.0", optional = true}
+
+[tool.poetry.extras]
+redis = ["redis"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-asyncio = "^0.21"
+pytest-cov = "^4.1"
+redis = ">=5.0,<6.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short --cov=gundy_ai.job_queue --cov-report=term-missing"
+asyncio_mode = "auto"
+
