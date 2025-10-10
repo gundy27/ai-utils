@@ -516,7 +516,7 @@ class RAGPipeline:
         return {
             "vector_count": vector_count,
             "parsers_registered": len(self.parser_registry.list_parsers()),
-            "supported_file_types": self.parser_registry.list_supported_types(),
+            "supported_file_types": self.parser_registry.get_supported_extensions(),
             "chunk_max_tokens": self.chunker.max_tokens,
             "embedding_model": self.embeddings.model_name,
             "embedding_dimensions": self.embeddings.dimensions,
