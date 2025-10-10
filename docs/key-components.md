@@ -264,7 +264,7 @@ Below are the minimum platform components you should build or verify exist befor
 
 ## 2.11 API Gateway / API Service
 
-**Status**: 🔨 Partial | **Priority**: P0 (Critical)
+**Status**: ✅ Built | **Priority**: P0 (Critical)
 
 **Responsibility**: Public surface for ingest, chat, admin, health, metrics. Provide OpenAPI spec and run contract tests.
 
@@ -282,7 +282,20 @@ Below are the minimum platform components you should build or verify exist befor
 
 - API-level request ID and trace injection
 
-**Current State**: Template exists (`templates/api-service-starter/`) but needs RAG-specific endpoints (ingest, chat, query).
+**Current State**: ✅ Fully implemented in `services/rag-api/` with:
+
+- **Complete RAG Pipeline Integration**: Ties together all gundy-ai libraries
+- **Document Ingestion**: `POST /documents/ingest` - Upload and process (TXT, PDF, DOCX)
+- **Semantic Search**: `POST /search` - Query with similarity search and filters
+- **Health Monitoring**: `GET /health` - Check all pipeline components
+- **Statistics**: `GET /stats` - Pipeline metrics and info
+- **FastAPI with OpenAPI**: Auto-generated docs at `/docs` and `/redoc`
+- **CORS Support**: Ready for frontend integration
+- **Structured Logging**: Full audit trail with structlog
+- **Type-Safe**: Pydantic models for all requests/responses
+- **Example Client**: Python client for easy API interaction
+- **Tests**: Basic integration tests included
+- Production-ready architecture with proper error handling
 
 ## 2.12 Metrics & Observability
 

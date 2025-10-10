@@ -1,0 +1,250 @@
+# RAG API Service
+
+Production-ready RAG (Retrieval-Augmented Generation) API service that integrates all gundy-ai libraries into a complete document processing and search system.
+
+## Features
+
+- **Complete RAG Pipeline**: Extract → Chunk → Embed → Store → Query
+- **Multiple File Types**: TXT, PDF, DOCX support
+- **Semantic Search**: Natural language document queries
+- **Health Monitoring**: Check all pipeline components
+- **Audit Logging**: Track all operations with structlog
+- **OpenAPI Documentation**: Interactive API docs
+- **Type-Safe**: Full Pydantic validation
+- **CORS Ready**: Frontend integration support
+
+## Architecture
+
+```
+Document Upload → Parser (TXT/PDF/DOCX) → Chunker (Token-aware)
+    → Embeddings (OpenAI) → Vector Store (ChromaDB) → Search Results
+```
+
+**Libraries Used**:
+
+- `gundy-ai-extractors`: Document parsing
+- `gundy-ai-chunker`: Text chunking
+- `gundy-ai-embeddings`: Vector generation
+- `gundy-ai-vectorstore`: Storage & retrieval
+
+## Quick Start
+
+```bash
+# 1. Install dependencies
+cd services/rag-api
+poetry install
+
+# 2. Set environment variables
+cp env.example .env
+# Edit .env and add your OPENAI_API_KEY
+
+# 3. Run server
+poetry run uvicorn app.main:app --reload --port 8000
+
+# 4. Visit API docs
+open http://localhost:8000/docs
+```
+
+## API Endpoints
+
+### Document Management
+
+**POST `/documents/ingest`**
+Upload and process a document through the RAG pipeline.
+
+Request (multipart/form-data):
+
+```bash
+curl -X POST "http://localhost:8000/documents/ingest" \
+  -F "file=@document.pdf" \
+  -F 'metadata={"source": "upload"}'
+```
+
+Response:
+
+```json
+{
+  "document_id": "doc_abc123",
+  "chunks_created": 15,
+  "vectors_stored": 15,
+  "total_tokens": 2048,
+  "estimated_cost_usd": 0.00004,
+  "processing_time_ms": 1250.5
+}
+```
+
+**POST `/search`**
+Search for similar documents using semantic similarity.
+
+Request:
+
+```json
+{
+  "query": "What is machine learning?",
+  "top_k": 5,
+  "filter": { "source": "upload" },
+  "include_text": true
+}
+```
+
+Response:
+
+```json
+{
+  "query": "What is machine learning?",
+  "results": [
+    {
+      "chunk_id": "doc_abc123_chunk_0",
+      "document_id": "doc_abc123",
+      "score": 0.95,
+      "text": "Machine learning is...",
+      "metadata": { "document_name": "ml_intro.pdf" }
+    }
+  ],
+  "total_results": 5,
+  "processing_time_ms": 150.2
+}
+```
+
+### Monitoring
+
+**GET `/health`**
+Check health of all pipeline components.
+
+**GET `/stats`**
+Get pipeline statistics (vector count, model info, etc.).
+
+**GET `/`**
+API information and links.
+
+## Using the Client
+
+The included example client makes it easy to interact with the API:
+
+```bash
+# Check health
+poetry run python examples/client.py
+
+# Ingest a document
+poetry run python examples/client.py path/to/document.pdf
+
+# Ingest and search
+poetry run python examples/client.py document.pdf "What is this about?"
+```
+
+## Configuration
+
+Environment variables (see `env.example`):
+
+| Variable               | Default                  | Description              |
+| ---------------------- | ------------------------ | ------------------------ |
+| `OPENAI_API_KEY`       | (required)               | OpenAI API key           |
+| `VECTOR_DB_PATH`       | `./vector_db`            | Vector database path     |
+| `COLLECTION_NAME`      | `documents`              | ChromaDB collection name |
+| `CHUNK_MAX_TOKENS`     | `512`                    | Maximum tokens per chunk |
+| `CHUNK_OVERLAP_TOKENS` | `50`                     | Overlap between chunks   |
+| `EMBEDDING_MODEL`      | `text-embedding-3-small` | OpenAI embedding model   |
+
+## Testing
+
+```bash
+# Run tests (basic tests don't require API key)
+poetry run pytest
+
+# Run with coverage
+poetry run pytest --cov
+
+# Test with API key (integration tests)
+export OPENAI_API_KEY="your-key"
+poetry run pytest tests/test_api.py::test_ingest_and_search
+```
+
+## Development
+
+```bash
+# Run with auto-reload
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run in Docker
+docker build -t rag-api .
+docker run -p 8000:8000 -e OPENAI_API_KEY="your-key" rag-api
+```
+
+## Production Deployment
+
+For production:
+
+1. **Set proper CORS origins** in config
+2. **Add authentication** (JWT, OAuth2, etc.)
+3. **Add rate limiting** (per user, per endpoint)
+4. **Monitor health checks** (integrate with monitoring tools)
+5. **Scale workers** (multiple uvicorn workers)
+6. **Add document index** (track document→chunks mapping)
+7. **Implement proper document deletion** (with document index)
+
+## API Documentation
+
+Interactive API documentation is available at:
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+
+## Example Workflow
+
+```python
+import httpx
+
+client = httpx.Client(base_url="http://localhost:8000")
+
+# 1. Upload document
+with open("document.pdf", "rb") as f:
+    response = client.post(
+        "/documents/ingest",
+        files={"file": f},
+        data={"metadata": '{"source": "test"}'}
+    )
+    doc_id = response.json()["document_id"]
+
+# 2. Search
+response = client.post(
+    "/search",
+    json={"query": "What is the main topic?", "top_k": 3}
+)
+results = response.json()["results"]
+
+for result in results:
+    print(f"{result['score']:.3f}: {result['text'][:100]}")
+```
+
+## Limitations & Future Improvements
+
+**Current Limitations**:
+
+- Document deletion is incomplete (needs document→chunks index)
+- No document listing (needs separate document table)
+- No user authentication
+- No rate limiting
+- In-memory session state (use Redis for production)
+
+**Future Improvements**:
+
+- Add more extractors (HTML, Excel, Images with OCR)
+- Support async processing for large files
+- Add caching layer (Redis)
+- Implement full document lifecycle management
+- Add vector database migration tools
+- Support multiple vector stores (FAISS, Pinecone)
+
+## Requirements
+
+- Python >=3.11,<3.13
+- OpenAI API key for embeddings
+- All gundy-ai libraries (extractors, chunker, embeddings, vectorstore)
+
+## License
+
+See main ai-utils repository.
+
+## Contributing
+
+Follow the project guidelines in `.cursorrules` at repository root.

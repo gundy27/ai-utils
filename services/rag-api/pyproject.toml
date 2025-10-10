@@ -1,0 +1,39 @@
+[tool.poetry]
+name = "rag-api"
+version = "0.1.0"
+description = "Production-ready RAG API service"
+authors = ["ai-utils <team@ai-utils.dev>"]
+readme = "README.md"
+packages = [{include = "app"}]
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+fastapi = ">=0.104,<1.0"
+uvicorn = {extras = ["standard"], version = ">=0.24,<1.0"}
+pydantic = ">=2.5,<3.0"
+pydantic-settings = ">=2.0,<3.0"
+structlog = ">=23.2,<25.0"
+python-multipart = ">=0.0.6,<1.0"
+# Local libraries
+gundy-ai-extractors = {path = "../../libs/extractors", develop = true}
+gundy-ai-chunker = {path = "../../libs/chunker", develop = true}
+gundy-ai-embeddings = {path = "../../libs/embeddings", extras = ["openai"], develop = true}
+gundy-ai-vectorstore = {path = "../../libs/vectorstore", extras = ["chromadb"], develop = true}
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-asyncio = "^0.21"
+httpx = ">=0.25,<1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto"
+
