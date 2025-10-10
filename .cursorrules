@@ -18,10 +18,17 @@ AI-utils is a collection of stable, well-tested utilities and libraries for buil
 
 ### 3.0 Versioning
 
+See `docs/versioning.md` for comprehensive versioning and dependency management guidelines.
+
+**Key requirements**:
+
+- Use semantic versioning (`vMAJOR.MINOR.PATCH`) for all releases
 - Use relaxed version constraints to avoid conflicts (e.g., `>=X.Y,<Z.0`)
 - Align dependency versions across all libs in the monorepo
+- Commit lockfiles (`poetry.lock`) for reproducible builds
+- Maintain CHANGELOG.md for each library/service
+- Tag all releases in Git
 - Test dependency changes across all affected modules
-- Document version requirements clearly
 
 ### 3.1 Security & access control
 
@@ -55,8 +62,15 @@ AI-utils is a collection of stable, well-tested utilities and libraries for buil
 
 ### 3.6 Dependency & version management
 
-- Pin dependencies; include lockfiles and a daily/weekly dependency health check job.
-- For adapters and plugins, require a minimum of semantic versioning and a compatibility matrix.
+See `docs/versioning.md` for full dependency management practices.
+
+**Key requirements**:
+
+- Include lockfiles in version control
+- Regular dependency health checks (weekly/bi-weekly)
+- Security updates prioritized (24-48h for CRITICAL/HIGH)
+- For adapters and plugins, require semantic versioning and compatibility matrix
+- Test all dependency updates before merging
 
 ### 3.7 Testing & QA
 
