@@ -113,6 +113,28 @@ export class RAGAPIClient {
 
     return response.json();
   }
+
+  async listDocuments(userId: string = "web_user"): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/documents?user_id=${userId}`);
+
+    if (!response.ok) {
+      throw new Error("Failed to list documents");
+    }
+
+    return response.json();
+  }
+
+  async deleteDocument(documentId: string): Promise<any> {
+    const response = await fetch(`${this.baseUrl}/documents/${documentId}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete document");
+    }
+
+    return response.json();
+  }
 }
 
 // Singleton instance

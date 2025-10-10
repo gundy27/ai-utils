@@ -5,6 +5,7 @@ import DocumentUpload from "@/components/DocumentUpload";
 import ChatInterface from "@/components/ChatInterface";
 import SessionSidebar from "@/components/SessionSidebar";
 import StatsPanel from "@/components/StatsPanel";
+import DocumentList from "@/components/DocumentList";
 import { apiClient } from "@/lib/api";
 import { Session, Message, DocumentIngestResponse } from "@/lib/types";
 
@@ -15,6 +16,7 @@ export default function Home() {
   const [totalCost, setTotalCost] = useState(0);
   const [totalTokens, setTotalTokens] = useState(0);
   const [showUpload, setShowUpload] = useState(true);
+  const [documentRefresh, setDocumentRefresh] = useState(0);
 
   const handleNewSession = () => {
     const newSession: Session = {
@@ -34,9 +36,14 @@ export default function Home() {
 
   const handleUploadComplete = (doc: DocumentIngestResponse) => {
     setShowUpload(false);
+    setDocumentRefresh((prev) => prev + 1); // Trigger document list refresh
     alert(
       `Document uploaded!\n\nID: ${doc.document_id}\nChunks: ${doc.chunks_created}\nTokens: ${doc.total_tokens}\nCost: $${doc.estimated_cost_usd.toFixed(6)}`,
     );
+  };
+
+  const handleDocumentDelete = () => {
+    setDocumentRefresh((prev) => prev + 1); // Trigger document list refresh
   };
 
   const handleSendMessage = async (message: string) => {
@@ -128,22 +135,30 @@ export default function Home() {
 
         {/* Chat Area */}
         <div className="flex-1 flex flex-col">
-          {showUpload && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-700">
-              <div className="max-w-4xl mx-auto">
-                <h2 className="text-lg font-semibold mb-4">
-                  Step 1: Upload a Document
-                </h2>
-                <DocumentUpload onUploadComplete={handleUploadComplete} />
-                <button
-                  onClick={() => setShowUpload(false)}
-                  className="mt-2 text-sm text-gray-600 dark:text-gray-400 hover:underline"
-                >
-                  Skip (use existing documents)
-                </button>
-              </div>
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <div className="p-4">
+              <button
+                onClick={() => setShowUpload(!showUpload)}
+                className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
+              >
+                {showUpload ? "− Hide Upload" : "+ Upload Document"}
+              </button>
             </div>
-          )}
+
+            {showUpload && (
+              <div className="px-4 pb-4">
+                <DocumentUpload onUploadComplete={handleUploadComplete} />
+              </div>
+            )}
+
+            {/* Document List */}
+            <div className="border-t border-gray-200 dark:border-gray-700">
+              <DocumentList
+                refreshTrigger={documentRefresh}
+                onDelete={handleDocumentDelete}
+              />
+            </div>
+          </div>
 
           <div className="flex-1 overflow-hidden">
             {!currentSession ? (

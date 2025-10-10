@@ -298,22 +298,43 @@ async def search_documents(request: SearchRequest) -> SearchResponse:
 
 
 @app.get("/documents")
-async def list_documents() -> Dict[str, Any]:
-    """List all documents.
+async def list_documents(
+    user_id: str = "anonymous", limit: int = 100
+) -> Dict[str, Any]:
+    """List all documents for a user.
 
-    Note: This is a simplified implementation.
-    In production, maintain a separate document index.
+    Args:
+        user_id: User identifier
+        limit: Maximum number of documents to return
+
+    Returns:
+        List of documents with metadata
     """
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
 
     try:
-        stats = pipeline.get_stats()
+        # Get documents from metadata store (source of truth)
+        documents = await pipeline.metadata_store.list_user_documents(
+            user_id=user_id, limit=limit
+        )
 
         return {
-            "message": "Document listing requires separate document index",
-            "total_vectors": stats["vector_count"],
-            "note": "Each document may have multiple vectors (chunks)",
+            "documents": [
+                {
+                    "id": doc.id,
+                    "name": doc.name,
+                    "user_id": doc.user_id,
+                    "uploaded_at": doc.uploaded_at.isoformat(),
+                    "status": doc.status,
+                    "chunks_count": doc.chunks_count,
+                    "file_size": doc.file_size,
+                    "file_type": doc.file_type,
+                    "metadata": doc.metadata_json,
+                }
+                for doc in documents
+            ],
+            "total": len(documents),
         }
 
     except Exception as e:
