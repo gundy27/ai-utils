@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.orm import sessionmaker
 
 from .audit import MetadataEventType, emit_metadata_event
-from .models import Base, Document, DocumentChunk, Message, Session
+from .models import Base, Document, DocumentChunk, Lead, Message, Session
 
 logger = structlog.get_logger(__name__)
 
@@ -445,6 +445,160 @@ class MetadataStore:
 
         return chunk_ids
 
+    # Lead Operations (Async)
+
+    async def create_lead(
+        self,
+        session_id: str,
+        email: Optional[str] = None,
+        name: Optional[str] = None,
+        company: Optional[str] = None,
+        role: Optional[str] = None,
+        interest_level: str = "medium",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Lead:
+        """Create a new lead capture record.
+
+        Args:
+            session_id: Session identifier
+            email: Lead email address
+            name: Lead name
+            company: Company name
+            role: Job role/title
+            interest_level: Interest level (low, medium, high)
+            metadata: Additional metadata (trigger reason, etc.)
+
+        Returns:
+            Created Lead object
+        """
+        lead_id = f"lead_{uuid.uuid4().hex[:16]}"
+
+        lead = Lead(
+            id=lead_id,
+            session_id=session_id,
+            email=email,
+            name=name,
+            company=company,
+            role=role,
+            interest_level=interest_level,
+            metadata_json=metadata,
+        )
+
+        async with self.async_session_maker() as db_session:
+            db_session.add(lead)
+            await db_session.commit()
+            await db_session.refresh(lead)
+
+        emit_metadata_event(
+            event_type=MetadataEventType.DOCUMENT_CREATED,  # Reuse or create LEAD_CREATED
+            operation="create_lead",
+            outcome="success",
+            session_id=session_id,
+            metadata={"interest_level": interest_level, "email": email},
+        )
+
+        logger.info(
+            "lead_created",
+            lead_id=lead_id,
+            session_id=session_id,
+            interest_level=interest_level,
+        )
+
+        return lead
+
+    async def get_lead(self, lead_id: str) -> Optional[Lead]:
+        """Get lead by ID.
+
+        Args:
+            lead_id: Lead identifier
+
+        Returns:
+            Lead object or None if not found
+        """
+        async with self.async_session_maker() as db_session:
+            result = await db_session.execute(select(Lead).where(Lead.id == lead_id))
+            lead = result.scalar_one_or_none()
+
+        return lead
+
+    async def get_lead_by_session(self, session_id: str) -> Optional[Lead]:
+        """Get lead by session ID.
+
+        Args:
+            session_id: Session identifier
+
+        Returns:
+            Lead object or None if not found
+        """
+        async with self.async_session_maker() as db_session:
+            result = await db_session.execute(
+                select(Lead).where(Lead.session_id == session_id)
+            )
+            lead = result.scalar_one_or_none()
+
+        return lead
+
+    async def list_leads(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        interest_level: Optional[str] = None,
+    ) -> List[Lead]:
+        """List all leads with optional filtering.
+
+        Args:
+            limit: Maximum number of leads to return
+            offset: Offset for pagination
+            interest_level: Filter by interest level (low, medium, high)
+
+        Returns:
+            List of Lead objects ordered by capture time (newest first)
+        """
+        async with self.async_session_maker() as db_session:
+            query = select(Lead)
+
+            if interest_level:
+                query = query.where(Lead.interest_level == interest_level)
+
+            query = query.order_by(desc(Lead.captured_at)).limit(limit).offset(offset)
+
+            result = await db_session.execute(query)
+            leads = result.scalars().all()
+
+        return list(leads)
+
+    async def update_lead(
+        self, lead_id: str, updates: Dict[str, Any]
+    ) -> Optional[Lead]:
+        """Update a lead record.
+
+        Args:
+            lead_id: Lead identifier
+            updates: Dictionary of fields to update
+                (name, email, company, role, interest_level, metadata_json)
+
+        Returns:
+            Updated Lead object or None if not found
+        """
+        async with self.async_session_maker() as db_session:
+            result = await db_session.execute(select(Lead).where(Lead.id == lead_id))
+            lead = result.scalar_one_or_none()
+
+            if not lead:
+                return None
+
+            # Update allowed fields
+            for field, value in updates.items():
+                if hasattr(lead, field):
+                    setattr(lead, field, value)
+
+            await db_session.commit()
+            await db_session.refresh(lead)
+
+        logger.info("lead_updated", lead_id=lead_id, updates=list(updates.keys()))
+
+        return lead
+
     # Statistics
 
     async def get_user_stats(self, user_id: str) -> Dict[str, Any]:
@@ -479,4 +633,38 @@ class MetadataStore:
             "sessions": session_count,
             "documents": document_count,
             "total_messages": total_messages,
+        }
+
+    async def get_lead_stats(self) -> Dict[str, Any]:
+        """Get lead statistics.
+
+        Returns:
+            Dictionary with lead statistics
+        """
+        async with self.async_session_maker() as db_session:
+            # Total leads
+            total_result = await db_session.execute(select(Lead))
+            total_leads = len(total_result.scalars().all())
+
+            # By interest level
+            high_result = await db_session.execute(
+                select(Lead).where(Lead.interest_level == "high")
+            )
+            high_count = len(high_result.scalars().all())
+
+            medium_result = await db_session.execute(
+                select(Lead).where(Lead.interest_level == "medium")
+            )
+            medium_count = len(medium_result.scalars().all())
+
+            low_result = await db_session.execute(
+                select(Lead).where(Lead.interest_level == "low")
+            )
+            low_count = len(low_result.scalars().all())
+
+        return {
+            "total": total_leads,
+            "high": high_count,
+            "medium": medium_count,
+            "low": low_count,
         }

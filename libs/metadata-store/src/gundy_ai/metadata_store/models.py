@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import JSON, Float, Index, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -122,3 +122,38 @@ class DocumentChunk(Base):
 
     def __repr__(self) -> str:
         return f"<DocumentChunk(doc={self.document_id}, chunk={self.chunk_id})>"
+
+
+class Lead(Base):
+    """Lead capture model for portfolio chatbot."""
+
+    __tablename__ = "leads"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("sessions.id"), index=True, nullable=False
+    )
+    name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    company: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    role: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    interest_level: Mapped[str] = mapped_column(
+        String(20), default="medium", nullable=False
+    )  # low, medium, high
+    captured_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    metadata_json: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        "metadata", JSON, nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_leads_session", "session_id"),
+        Index("ix_leads_interest", "interest_level"),
+        Index("ix_leads_captured", "captured_at"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Lead(id={self.id}, email={self.email}, interest={self.interest_level})>"
+        )

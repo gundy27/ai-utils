@@ -2,7 +2,7 @@
 
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import structlog
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -15,10 +15,14 @@ from .models import (
     ChatResponse,
     DocumentIngestResponse,
     HealthResponse,
+    LeadCapturePrompt,
+    LeadCaptureRequest,
+    LeadCaptureResponse,
     SearchRequest,
     SearchResponse,
     SearchResultItem,
     SourceChunk,
+    ToolCall,
 )
 from .pipeline import RAGPipeline
 
@@ -379,16 +383,18 @@ async def delete_document(document_id: str) -> Dict[str, Any]:
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
-    """Chat with RAG system.
+    """Chat with RAG system with OpenAI function calling and lead detection.
 
     Uses semantic search to find relevant context, then generates an answer
     using an LLM. Maintains conversation history across sessions.
+    Supports tool calling for scheduling, contact, and portfolio links.
+    Automatically detects lead signals and triggers lead capture when appropriate.
 
     Args:
         request: Chat request with message and parameters
 
     Returns:
-        ChatResponse with answer and sources
+        ChatResponse with answer, sources, tool_calls, and lead_capture
     """
     if pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialized")
@@ -414,6 +420,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
             for s in result["sources"]
         ]
 
+        # Convert tool calls
+        tool_calls = [ToolCall(**tc) for tc in result.get("tool_calls", [])]
+
+        # Convert lead capture
+        lead_capture = None
+        if result.get("lead_capture"):
+            lead_capture = LeadCapturePrompt(**result["lead_capture"])
+
         return ChatResponse(
             answer=result["answer"],
             session_id=result["session_id"],
@@ -422,8 +436,274 @@ async def chat(request: ChatRequest) -> ChatResponse:
             tokens_used=result["tokens_used"],
             cost_usd=result["cost_usd"],
             processing_time_ms=result["processing_time_ms"],
+            tool_calls=tool_calls,
+            lead_capture=lead_capture,
         )
 
     except Exception as e:
         logger.error("chat_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.post("/leads/capture", response_model=LeadCaptureResponse)
+async def capture_lead(request: LeadCaptureRequest) -> LeadCaptureResponse:
+    """Capture a lead from a conversation.
+
+    Args:
+        request: Lead capture request with session and contact information
+
+    Returns:
+        LeadCaptureResponse with lead ID
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    try:
+        # Create lead in metadata store
+        lead = await pipeline.metadata_store.create_lead(
+            session_id=request.session_id,
+            email=request.email,
+            name=request.name,
+            company=request.company,
+            role=request.role,
+            interest_level=request.interest_level,
+            metadata={"source": "widget_capture"},
+        )
+
+        logger.info(
+            "lead_captured",
+            lead_id=lead.id,
+            session_id=request.session_id,
+            interest_level=request.interest_level,
+        )
+
+        return LeadCaptureResponse(
+            lead_id=lead.id,
+            session_id=request.session_id,
+            message="Thank you for your interest! I'll be in touch soon.",
+        )
+
+    except Exception as e:
+        logger.error("lead_capture_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# Admin Endpoints
+@app.get("/admin/conversations")
+async def list_conversations(
+    page: int = 1,
+    limit: int = 50,
+    user_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List all conversations (admin only).
+
+    Args:
+        page: Page number (1-based)
+        limit: Results per page
+        user_id: Optional filter by user_id
+
+    Returns:
+        List of conversations with metadata
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    try:
+        offset = (page - 1) * limit
+
+        # Get sessions (optionally filtered by user_id)
+        if user_id:
+            sessions = await pipeline.metadata_store.list_user_sessions(
+                user_id=user_id, limit=limit, offset=offset
+            )
+        else:
+            # For admin, we'd need a list_all_sessions method
+            # For now, use a placeholder user query
+            sessions = []
+
+        conversations = []
+        for session in sessions:
+            # Get message count and last message
+            messages = await pipeline.metadata_store.get_conversation_history(
+                session.id, limit=1
+            )
+            last_message = messages[0] if messages else None
+
+            conversations.append(
+                {
+                    "session_id": session.id,
+                    "user_id": session.user_id,
+                    "created_at": session.created_at.isoformat(),
+                    "last_activity": session.last_activity.isoformat(),
+                    "message_count": session.message_count,
+                    "last_message_preview": (
+                        last_message.content[:100] + "..."
+                        if last_message and len(last_message.content) > 100
+                        else last_message.content if last_message else None
+                    ),
+                }
+            )
+
+        return {
+            "conversations": conversations,
+            "page": page,
+            "limit": limit,
+            "total": len(conversations),
+        }
+
+    except Exception as e:
+        logger.error("list_conversations_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/admin/conversations/{session_id}")
+async def get_conversation(session_id: str) -> Dict[str, Any]:
+    """Get full conversation by session ID (admin only).
+
+    Args:
+        session_id: Session identifier
+
+    Returns:
+        Full conversation with all messages
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    try:
+        # Get session
+        session = await pipeline.metadata_store.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get all messages
+        messages = await pipeline.metadata_store.get_conversation_history(
+            session_id, limit=1000
+        )
+
+        # Check for lead
+        lead = await pipeline.metadata_store.get_lead_by_session(session_id)
+
+        return {
+            "session": {
+                "id": session.id,
+                "user_id": session.user_id,
+                "created_at": session.created_at.isoformat(),
+                "last_activity": session.last_activity.isoformat(),
+                "message_count": session.message_count,
+            },
+            "messages": [
+                {
+                    "id": msg.id,
+                    "role": msg.role,
+                    "content": msg.content,
+                    "timestamp": msg.timestamp.isoformat(),
+                    "model": msg.model,
+                    "tokens_used": msg.tokens_used,
+                    "cost_usd": msg.cost_usd,
+                    "sources": msg.sources_json,
+                    "metadata": msg.metadata_json,
+                }
+                for msg in messages
+            ],
+            "lead": (
+                {
+                    "id": lead.id,
+                    "email": lead.email,
+                    "name": lead.name,
+                    "company": lead.company,
+                    "role": lead.role,
+                    "interest_level": lead.interest_level,
+                    "captured_at": lead.captured_at.isoformat(),
+                }
+                if lead
+                else None
+            ),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("get_conversation_error", error=str(e), session_id=session_id)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/admin/leads")
+async def list_leads(
+    page: int = 1,
+    limit: int = 50,
+    interest_level: Optional[str] = None,
+) -> Dict[str, Any]:
+    """List all leads (admin only).
+
+    Args:
+        page: Page number (1-based)
+        limit: Results per page
+        interest_level: Optional filter by interest level (low, medium, high)
+
+    Returns:
+        List of leads with metadata
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    try:
+        offset = (page - 1) * limit
+
+        # Get leads
+        leads = await pipeline.metadata_store.list_leads(
+            limit=limit,
+            offset=offset,
+            interest_level=interest_level,
+        )
+
+        return {
+            "leads": [
+                {
+                    "id": lead.id,
+                    "session_id": lead.session_id,
+                    "email": lead.email,
+                    "name": lead.name,
+                    "company": lead.company,
+                    "role": lead.role,
+                    "interest_level": lead.interest_level,
+                    "captured_at": lead.captured_at.isoformat(),
+                    "metadata": lead.metadata_json,
+                }
+                for lead in leads
+            ],
+            "page": page,
+            "limit": limit,
+            "total": len(leads),
+        }
+
+    except Exception as e:
+        logger.error("list_leads_error", error=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@app.get("/admin/analytics")
+async def get_analytics() -> Dict[str, Any]:
+    """Get analytics dashboard data (admin only).
+
+    Returns:
+        Analytics metrics including lead stats and conversation stats
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    try:
+        # Get lead stats
+        lead_stats = await pipeline.metadata_store.get_lead_stats()
+
+        # Get pipeline stats
+        pipeline_stats = pipeline.get_stats()
+
+        return {
+            "leads": lead_stats,
+            "pipeline": pipeline_stats,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except Exception as e:
+        logger.error("get_analytics_error", error=str(e))
         raise HTTPException(status_code=500, detail=str(e)) from e

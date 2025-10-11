@@ -14,6 +14,7 @@ pydantic = ">=2.5,<3.0"
 pydantic-settings = ">=2.0,<3.0"
 structlog = ">=23.2,<25.0"
 python-multipart = ">=0.0.6,<1.0"
+openai = ">=1.0,<2.0"
 # Local libraries
 gundy-ai-extractors = {path = "../../libs/extractors", develop = true}
 gundy-ai-chunker = {path = "../../libs/chunker", develop = true}

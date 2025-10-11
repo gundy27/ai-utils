@@ -1,6 +1,7 @@
 """RAG pipeline integration."""
 
 import base64
+import json
 import tempfile
 import time
 from pathlib import Path
@@ -13,6 +14,9 @@ from gundy_ai.extractors import ParserRegistry, PDFParser, TXTParser
 from gundy_ai.llm import OpenAIClient
 from gundy_ai.metadata_store import MetadataStore
 from gundy_ai.vectorstore import ChromaDBAdapter, QueryResult
+
+from .lead_detection import detect_interest_signal
+from .tools import CALENDLY_TOOL, CONTACT_TOOL, PORTFOLIO_TOOL, ToolRegistry
 
 logger = structlog.get_logger(__name__)
 
@@ -90,6 +94,12 @@ class RAGPipeline:
         if openai_api_key:
             os.environ["OPENAI_API_KEY"] = openai_api_key
         self.llm = OpenAIClient()
+
+        # Initialize tool registry
+        self.tool_registry = ToolRegistry()
+        self.tool_registry.register(CALENDLY_TOOL)
+        self.tool_registry.register(CONTACT_TOOL)
+        self.tool_registry.register(PORTFOLIO_TOOL)
 
         logger.info("rag_pipeline_initialized")
 
@@ -352,7 +362,7 @@ class RAGPipeline:
         health["parsers"] = {
             "healthy": True,
             "registered": len(self.parser_registry.list_parsers()),
-            "supported_types": self.parser_registry.list_supported_types(),
+            "supported_types": self.parser_registry.get_supported_extensions(),
         }
 
         # Check chunker
@@ -380,8 +390,10 @@ class RAGPipeline:
         model: str = "gpt-4o-mini",
         include_history: bool = True,
         system_prompt: Optional[str] = None,
+        enable_tools: bool = True,
+        enable_lead_detection: bool = True,
     ) -> Dict[str, Any]:
-        """Chat with RAG system.
+        """Chat with RAG system with OpenAI function calling and lead detection.
 
         Args:
             message: User message
@@ -390,9 +402,12 @@ class RAGPipeline:
             top_k: Number of context chunks to retrieve
             model: LLM model to use
             include_history: Include conversation history in context
+            system_prompt: Custom system prompt
+            enable_tools: Enable OpenAI function calling for tools
+            enable_lead_detection: Enable automatic lead signal detection
 
         Returns:
-            Dictionary with answer, sources, and metadata
+            Dictionary with answer, sources, tool_calls, lead_capture, and metadata
         """
         start_time = time.time()
 
@@ -442,8 +457,10 @@ class RAGPipeline:
         # Construct LLM prompt
         # Use custom system prompt if provided, otherwise use default
         system_message = system_prompt or (
-            "You are a helpful assistant. Answer questions based on the provided context. "
-            "If the context doesn't contain relevant information, say so clearly."
+            "You are a helpful assistant representing Dan Gunderson, a software engineer. "
+            "Answer questions based on the provided context about Dan's experience, skills, and projects. "
+            "If the context doesn't contain relevant information, say so clearly. "
+            "Be professional, concise, and helpful. When appropriate, use available tools to help the user."
         )
 
         messages = [{"role": "system", "content": system_message}]
@@ -455,18 +472,104 @@ class RAGPipeline:
         user_prompt = f"Context from documents:\n\n{context}\n\nQuestion: {message}"
         messages.append({"role": "user", "content": user_prompt})
 
-        # Call LLM
-        answer = self.llm.chat(model=model, messages=messages, max_tokens=500)
+        # Prepare OpenAI function calling with tools
+        extra_params = {}
+        if enable_tools:
+            tool_schemas = self.tool_registry.get_tool_schemas()
+            if tool_schemas:
+                extra_params["tools"] = tool_schemas
+                extra_params["tool_choice"] = "auto"
+
+        # Call LLM with tools
+        # Note: OpenAI's chat method returns string, but with tools we need the full response
+        # We'll need to use the underlying client directly for tool calls
+        from openai import OpenAI
+
+        openai_client = OpenAI(api_key=self.llm.api_key)
+
+        response = openai_client.chat.completions.create(
+            model=model, messages=messages, max_tokens=500, **extra_params
+        )
+
+        # Extract answer and tool calls
+        answer = ""
+        tool_calls_data = []
+
+        if response.choices:
+            choice = response.choices[0]
+            message_obj = choice.message
+
+            # Get text content
+            if message_obj.content:
+                answer = message_obj.content
+
+            # Get tool calls
+            if message_obj.tool_calls:
+                for tool_call in message_obj.tool_calls:
+                    try:
+                        # Parse arguments
+                        args = json.loads(tool_call.function.arguments)
+
+                        # Execute tool
+                        result = self.tool_registry.execute(
+                            tool_call.function.name, args
+                        )
+
+                        # Add tool name to result for Pydantic validation
+                        result["tool"] = tool_call.function.name
+
+                        tool_calls_data.append(result)
+
+                    except Exception as e:
+                        logger.error(
+                            "tool_execution_failed",
+                            tool_name=tool_call.function.name,
+                            error=str(e),
+                        )
 
         # Estimate tokens (rough approximation)
-        # In production, get from LLM response
         total_tokens = len(message.split()) + len(answer.split()) + len(context.split())
-        estimated_tokens = int(total_tokens * 1.3)  # Rough token estimate
+        estimated_tokens = int(total_tokens * 1.3)
 
         # Estimate cost (for gpt-4o-mini: $0.15/1M input, $0.60/1M output)
         input_cost = (estimated_tokens * 0.15) / 1_000_000
         output_cost = (len(answer.split()) * 1.3 * 0.60) / 1_000_000
         estimated_cost = input_cost + output_cost
+
+        # Detect lead signals
+        lead_capture_data = None
+        if enable_lead_detection:
+            # Get all conversation history for lead detection
+            all_history = await self.metadata_store.get_conversation_history(
+                session.id, limit=100
+            )
+
+            conversation_for_detection = [
+                {"role": msg.role, "content": msg.content} for msg in all_history
+            ]
+
+            context_used = [r.text or "" for r in search_results]
+
+            signal = detect_interest_signal(
+                message=message,
+                conversation_history=conversation_for_detection,
+                context_used=context_used,
+            )
+
+            if signal["should_capture"]:
+                lead_capture_data = {
+                    "should_capture": True,
+                    "interest_level": signal["interest_level"],
+                    "trigger": signal["trigger"],
+                    "message": "I'd love to learn more about your interest! Would you mind sharing your contact information?",
+                }
+
+                logger.info(
+                    "lead_capture_triggered",
+                    session_id=session.id,
+                    interest_level=signal["interest_level"],
+                    trigger=signal["trigger"],
+                )
 
         # Save assistant message
         await self.metadata_store.add_message(
@@ -477,6 +580,10 @@ class RAGPipeline:
             tokens_used=estimated_tokens,
             cost_usd=estimated_cost,
             sources={"chunks": [r.id for r in search_results]},
+            metadata={
+                "tool_calls": tool_calls_data,
+                "lead_capture_triggered": lead_capture_data is not None,
+            },
         )
 
         processing_time_ms = (time.time() - start_time) * 1000
@@ -487,6 +594,8 @@ class RAGPipeline:
             tokens=estimated_tokens,
             cost=estimated_cost,
             processing_time_ms=processing_time_ms,
+            tools_called=len(tool_calls_data),
+            lead_triggered=lead_capture_data is not None,
         )
 
         return {
@@ -504,6 +613,8 @@ class RAGPipeline:
             "tokens_used": estimated_tokens,
             "cost_usd": estimated_cost,
             "processing_time_ms": processing_time_ms,
+            "tool_calls": tool_calls_data,
+            "lead_capture": lead_capture_data,
         }
 
     def get_stats(self) -> Dict[str, Any]:
