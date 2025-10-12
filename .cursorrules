@@ -14,6 +14,44 @@ AI-utils is a collection of stable, well-tested utilities and libraries for buil
 - Keep stable code separate from experimental work
 - Maintain clean git history with meaningful commits
 
+## Repository Scope
+
+### What Belongs in ai-utils
+
+This repository contains **ONLY**:
+
+1. **Core reusable libraries** (`libs/`) - Generic, well-tested components that can be used across multiple applications
+2. **Generic infrastructure services** (`services/`) - Foundational services like auth, basic RAG APIs
+3. **Templates** (`templates/`) - Clean starting points for common patterns (not complete applications)
+
+### What Does NOT Belong
+
+Application-specific features belong in separate repositories that **import** these libraries:
+
+- ❌ Complete end-user applications
+- ❌ Use-case specific business logic (e.g., lead scoring, industry-specific workflows)
+- ❌ Opinionated product features (e.g., specific UI designs, branded components)
+- ❌ Customer-specific customizations
+- ❌ Experimental or unstable code
+
+### When to Create a Separate Repository
+
+Create a new repository when:
+
+1. You're building a complete application (e.g., portfolio chatbot, sales assistant)
+2. You need use-case specific tools or features (e.g., Calendly integration, lead detection)
+3. You want to version the application independently from core libraries
+4. The code is opinionated or specific to a particular domain
+
+### Benefits of Separation
+
+- **Clear Purpose**: Each repo has one job
+- **Independent Versioning**: Apps evolve without touching core libs
+- **Open Source Ready**: ai-utils can be published without exposing use-cases
+- **Better Testing**: Test libraries in isolation
+- **Reusability**: Other projects can import gundy-ai-* libraries
+- **Clean Dependencies**: Libraries don't depend on application code
+
 ## Guardrails
 
 ### 3.0 Versioning
