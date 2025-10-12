@@ -1,5 +1,6 @@
 """RAG API main application."""
 
+import json
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict
@@ -7,7 +8,7 @@ from typing import Any, Dict
 import structlog
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from .config import settings
 from .models import (
@@ -426,4 +427,47 @@ async def chat(request: ChatRequest) -> ChatResponse:
 
     except Exception as e:
         logger.error("chat_error", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/chat/stream")
+async def chat_stream(request: ChatRequest):
+    """Stream chat responses with real-time context retrieval.
+
+    Uses Server-Sent Events (SSE) to stream responses as they're generated.
+    Returns events with types: metadata, content, done, error.
+
+    Args:
+        request: Chat request with message and parameters
+
+    Returns:
+        StreamingResponse with SSE events
+    """
+    if pipeline is None:
+        raise HTTPException(status_code=503, detail="Pipeline not initialized")
+
+    async def generate():
+        try:
+            async for event in pipeline.chat_stream(
+                message=request.message,
+                session_id=request.session_id,
+                user_id=request.user_id,
+                top_k=request.top_k,
+                model=request.model,
+                system_prompt=request.system_prompt,
+            ):
+                # Format as SSE
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            logger.error("chat_stream_error", error=str(e))
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        },
+    )

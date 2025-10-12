@@ -56,6 +56,7 @@ export interface Settings {
   topK: number;
   chunkMaxTokens: number;
   userId: string;
+  useStreaming: boolean;
 }
 
 export interface HealthStatus {

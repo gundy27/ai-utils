@@ -49,7 +49,7 @@ open http://localhost:8000/docs
 
 ### Chat
 
-**POST `/chat`** 🆕
+**POST `/chat`**
 Chat with your documents using RAG.
 
 Request:
@@ -84,6 +84,57 @@ Response:
   "processing_time_ms": 850.5
 }
 ```
+
+**POST `/chat/stream`** 🆕 Streaming
+Stream chat responses with real-time updates using Server-Sent Events (SSE).
+
+Request (same as `/chat`):
+
+```json
+{
+  "message": "Explain quantum computing",
+  "session_id": "session_abc123",
+  "user_id": "user123",
+  "top_k": 5,
+  "model": "gpt-4o-mini"
+}
+```
+
+Response: Server-Sent Events stream
+
+```
+data: {"type":"metadata","session_id":"session_abc123","sources":[{"chunk_id":"doc_xyz","score":0.92}]}
+
+data: {"type":"content","delta":"Quantum"}
+
+data: {"type":"content","delta":" computing"}
+
+data: {"type":"content","delta":" is..."}
+
+data: {"type":"done","tokens_used":300,"cost_usd":0.0003,"processing_time_ms":1200.5}
+```
+
+**Event Types**:
+
+- `metadata`: Session ID and retrieved source chunks
+- `content`: Text delta to append to response
+- `done`: Final statistics (tokens, cost, time)
+- `error`: Error message if something fails
+
+**Example with curl**:
+
+```bash
+curl -N http://localhost:8000/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello", "user_id": "test"}'
+```
+
+**Benefits**:
+
+- ✅ Better UX - users see responses as they're generated
+- ✅ Progressive disclosure - start reading before completion
+- ✅ Perceived performance - feels faster
+- ✅ Real-time feedback - see progress immediately
 
 ### Document Management
 

@@ -8,12 +8,16 @@ interface Props {
   messages: Message[];
   onSendMessage: (message: string) => Promise<void>;
   isLoading: boolean;
+  isStreaming?: boolean;
+  streamMessage?: string;
 }
 
 export default function ChatInterface({
   messages,
   onSendMessage,
   isLoading,
+  isStreaming = false,
+  streamMessage = "",
 }: Props) {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -24,11 +28,11 @@ export default function ChatInterface({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, streamMessage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if (!input.trim() || isLoading || isStreaming) return;
 
     const message = input.trim();
     setInput("");
@@ -51,7 +55,17 @@ export default function ChatInterface({
           messages.map((msg, idx) => <MessageBubble key={idx} message={msg} />)
         )}
 
-        {isLoading && (
+        {isStreaming && streamMessage && (
+          <MessageBubble
+            message={{
+              role: "assistant",
+              content: streamMessage,
+            }}
+            isStreaming={true}
+          />
+        )}
+
+        {isLoading && !isStreaming && (
           <div className="flex justify-start">
             <div className="bg-gray-200 dark:bg-gray-700 rounded-lg px-4 py-2">
               <div className="flex gap-1">
@@ -81,11 +95,11 @@ export default function ChatInterface({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask a question about your documents..."
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
-            disabled={isLoading}
+            disabled={isLoading || isStreaming}
           />
           <button
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || isLoading || isStreaming}
             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             Send

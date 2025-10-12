@@ -4,7 +4,7 @@ import base64
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import structlog
 from gundy_ai.chunker import TokenAwareChunker
@@ -501,6 +501,148 @@ class RAGPipeline:
                 for r in search_results
             ],
             "model": model,
+            "tokens_used": estimated_tokens,
+            "cost_usd": estimated_cost,
+            "processing_time_ms": processing_time_ms,
+        }
+
+    async def chat_stream(
+        self,
+        message: str,
+        session_id: Optional[str] = None,
+        user_id: str = "anonymous",
+        top_k: int = 5,
+        model: str = "gpt-4o-mini",
+        include_history: bool = True,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Stream chat responses with context retrieval.
+
+        Args:
+            message: User message
+            session_id: Optional session ID for conversation history
+            user_id: User identifier
+            top_k: Number of context chunks to retrieve
+            model: LLM model to use
+            include_history: Include conversation history in context
+            system_prompt: Optional custom system prompt
+
+        Yields:
+            Streaming events with types: metadata, content, done, error
+        """
+        start_time = time.time()
+
+        # Get or create session
+        if session_id:
+            session = await self.metadata_store.get_session(session_id)
+            if not session:
+                session = await self.metadata_store.create_session(user_id=user_id)
+        else:
+            session = await self.metadata_store.create_session(user_id=user_id)
+
+        logger.info("chat_stream_start", session_id=session.id, user_id=user_id)
+
+        # Save user message
+        await self.metadata_store.add_message(
+            session_id=session.id, role="user", content=message
+        )
+
+        # Search for relevant context - filter by user_id for RBAC
+        search_results = self.search(
+            query=message, top_k=top_k, filter={"user_id": user_id}, include_text=True
+        )
+
+        # Yield metadata first (session_id, sources)
+        yield {
+            "type": "metadata",
+            "session_id": session.id,
+            "sources": [
+                {"chunk_id": r.id, "score": r.score, "text": r.text}
+                for r in search_results
+            ],
+        }
+
+        # Build context from search results
+        context_parts = [
+            f"[Source {i+1}]: {r.text}" for i, r in enumerate(search_results)
+        ]
+        context = (
+            "\n\n".join(context_parts)
+            if context_parts
+            else "No relevant documents found."
+        )
+
+        # Get conversation history if requested
+        history_messages = []
+        if include_history and session.message_count > 0:
+            history = await self.metadata_store.get_conversation_history(
+                session.id,
+                limit=6,  # Last 3 exchanges
+            )
+            # Exclude the message we just added
+            history_messages = [
+                {"role": msg.role, "content": msg.content}
+                for msg in history[:-1]  # Exclude last (current user message)
+            ]
+
+        # Construct LLM prompt
+        system_message = system_prompt or (
+            "You are a helpful assistant. Answer questions based on the provided context. "
+            "If the context doesn't contain relevant information, say so clearly."
+        )
+
+        messages = [{"role": "system", "content": system_message}]
+        messages.extend(history_messages)
+
+        # Add context and current question
+        user_prompt = f"Context from documents:\n\n{context}\n\nQuestion: {message}"
+        messages.append({"role": "user", "content": user_prompt})
+
+        # Stream from LLM
+        full_response = ""
+        try:
+            for chunk_text in self.llm.chat_stream(model=model, messages=messages):
+                full_response += chunk_text
+                yield {"type": "content", "delta": chunk_text}
+        except Exception as e:
+            logger.error("chat_stream_error", error=str(e))
+            yield {"type": "error", "message": str(e)}
+            return
+
+        # Estimate tokens and cost
+        total_tokens = (
+            len(message.split()) + len(full_response.split()) + len(context.split())
+        )
+        estimated_tokens = int(total_tokens * 1.3)
+
+        input_cost = (estimated_tokens * 0.15) / 1_000_000
+        output_cost = (len(full_response.split()) * 1.3 * 0.60) / 1_000_000
+        estimated_cost = input_cost + output_cost
+
+        # Save assistant message after streaming completes
+        await self.metadata_store.add_message(
+            session_id=session.id,
+            role="assistant",
+            content=full_response,
+            model=model,
+            tokens_used=estimated_tokens,
+            cost_usd=estimated_cost,
+            sources={"chunks": [r.id for r in search_results]},
+        )
+
+        processing_time_ms = (time.time() - start_time) * 1000
+
+        logger.info(
+            "chat_stream_complete",
+            session_id=session.id,
+            tokens=estimated_tokens,
+            cost=estimated_cost,
+            processing_time_ms=processing_time_ms,
+        )
+
+        # Yield completion event
+        yield {
+            "type": "done",
             "tokens_used": estimated_tokens,
             "cost_usd": estimated_cost,
             "processing_time_ms": processing_time_ms,

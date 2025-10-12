@@ -70,6 +70,89 @@ export class RAGAPIClient {
     return response.json();
   }
 
+  async chatStream(
+    message: string,
+    sessionId?: string,
+    userId: string = "default_user",
+    topK: number = 5,
+    model: string = "gpt-4o-mini",
+    onChunk: (chunk: string) => void = () => {},
+    onMetadata?: (metadata: {
+      session_id: string;
+      sources: SourceChunk[];
+    }) => void,
+    onDone?: (stats: {
+      tokens_used: number;
+      cost_usd: number;
+      processing_time_ms: number;
+    }) => void,
+    onError?: (error: string) => void,
+  ): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/chat/stream`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message,
+        session_id: sessionId,
+        user_id: userId,
+        top_k: topK,
+        model,
+        include_sources: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error("No response body");
+    }
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              switch (data.type) {
+                case "metadata":
+                  onMetadata?.(data);
+                  break;
+                case "content":
+                  onChunk(data.delta);
+                  break;
+                case "done":
+                  onDone?.(data);
+                  break;
+                case "error":
+                  onError?.(data.message);
+                  break;
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete chunks
+              console.warn("Failed to parse SSE event:", e);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
   async search(
     query: string,
     topK: number = 5,

@@ -19,11 +19,14 @@ export default function Home() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [currentStreamMessage, setCurrentStreamMessage] = useState("");
   const [settings, setSettings] = useState<Settings>({
     model: "gpt-4o-mini",
     topK: 5,
     chunkMaxTokens: 512,
     userId: "default_user",
+    useStreaming: true,
   });
 
   const handleNewSession = () => {
@@ -69,41 +72,101 @@ export default function Home() {
       sessions.map((s) => (s.id === session.id ? updatedSession : s)),
     );
 
-    setIsLoading(true);
+    if (settings.useStreaming) {
+      // Streaming mode
+      setIsStreaming(true);
+      setCurrentStreamMessage("");
 
-    try {
-      const response = await apiClient.chat(
-        message,
-        session.id.startsWith("new_") ? undefined : session.id,
-        settings.userId,
-        settings.topK,
-        settings.model,
-        true,
-      );
+      let sessionIdResult = "";
+      let sourcesResult: SourceChunk[] = [];
+      let fullResponse = "";
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: response.answer,
-        sources: response.sources,
-        tokens: response.tokens_used,
-        cost: response.cost_usd,
-      };
+      try {
+        await apiClient.chatStream(
+          message,
+          session.id.startsWith("new_") ? undefined : session.id,
+          settings.userId,
+          settings.topK,
+          settings.model,
+          // onChunk
+          (delta) => {
+            fullResponse += delta;
+            setCurrentStreamMessage(fullResponse);
+          },
+          // onMetadata
+          (metadata) => {
+            sessionIdResult = metadata.session_id;
+            sourcesResult = metadata.sources;
+          },
+          // onDone
+          (stats) => {
+            const assistantMessage: Message = {
+              role: "assistant",
+              content: fullResponse,
+              sources: sourcesResult,
+              tokens: stats.tokens_used,
+              cost: stats.cost_usd,
+            };
 
-      // Update session with real session ID if it was new
-      const finalSession = {
-        id: response.session_id,
-        messages: [...updatedSession.messages, assistantMessage],
-        message_count: updatedSession.messages.length + 1,
-      };
+            const finalSession = {
+              id: sessionIdResult,
+              messages: [...updatedSession.messages, assistantMessage],
+              message_count: updatedSession.messages.length + 1,
+            };
 
-      setCurrentSession(finalSession);
-      setSessions(
-        sessions.map((s) => (s.id === session.id ? finalSession : s)),
-      );
-    } catch (error) {
-      alert(`Chat failed: ${error}`);
-    } finally {
-      setIsLoading(false);
+            setCurrentSession(finalSession);
+            setSessions(
+              sessions.map((s) => (s.id === session.id ? finalSession : s)),
+            );
+            setCurrentStreamMessage("");
+          },
+          // onError
+          (error) => {
+            alert(`Chat failed: ${error}`);
+            setCurrentStreamMessage("");
+          },
+        );
+      } finally {
+        setIsStreaming(false);
+      }
+    } else {
+      // Non-streaming mode
+      setIsLoading(true);
+
+      try {
+        const response = await apiClient.chat(
+          message,
+          session.id.startsWith("new_") ? undefined : session.id,
+          settings.userId,
+          settings.topK,
+          settings.model,
+          true,
+        );
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: response.answer,
+          sources: response.sources,
+          tokens: response.tokens_used,
+          cost: response.cost_usd,
+        };
+
+        // Update session with real session ID if it was new
+        const finalSession = {
+          id: response.session_id,
+          messages: [...updatedSession.messages, assistantMessage],
+          message_count: updatedSession.messages.length + 1,
+        };
+
+        setCurrentSession(finalSession);
+        setSessions(
+          sessions.map((s) => (s.id === session.id ? finalSession : s)),
+        );
+      } catch (error) {
+        alert(`Chat failed: ${error}`);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -162,6 +225,8 @@ export default function Home() {
                   messages={currentSession.messages}
                   onSendMessage={handleSendMessage}
                   isLoading={isLoading}
+                  isStreaming={isStreaming}
+                  streamMessage={currentStreamMessage}
                 />
               )}
             </div>

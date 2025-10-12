@@ -5,9 +5,10 @@ import SourceCitation from "./SourceCitation";
 
 interface Props {
   message: Message;
+  isStreaming?: boolean;
 }
 
-export default function MessageBubble({ message }: Props) {
+export default function MessageBubble({ message, isStreaming = false }: Props) {
   const isUser = message.role === "user";
 
   return (
@@ -19,7 +20,14 @@ export default function MessageBubble({ message }: Props) {
             : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
         }`}
       >
-        <div className="whitespace-pre-wrap">{message.content}</div>
+        <div className="whitespace-pre-wrap">
+          {message.content}
+          {isStreaming && (
+            <span className="inline-block ml-1 w-2 h-4 bg-current animate-pulse">
+              ▊
+            </span>
+          )}
+        </div>
 
         {!isUser && message.sources && message.sources.length > 0 && (
           <div className="mt-3 pt-3 border-t border-gray-300 dark:border-gray-600">

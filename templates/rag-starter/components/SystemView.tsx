@@ -107,6 +107,27 @@ export default function SystemView({ settings, onSettingsChange }: Props) {
                 Identifier for tracking sessions and documents
               </p>
             </div>
+
+            {/* Streaming Toggle */}
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.useStreaming}
+                  onChange={(e) =>
+                    handleSettingChange("useStreaming", e.target.checked)
+                  }
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <span className="text-sm font-medium">
+                  Enable Streaming Responses
+                </span>
+              </label>
+              <p className="text-xs text-gray-500 mt-1 ml-6">
+                Stream responses in real-time for better UX and perceived
+                performance
+              </p>
+            </div>
           </div>
         </div>
 

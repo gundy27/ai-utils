@@ -1,6 +1,6 @@
 """Request and response models for RAG API."""
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -137,3 +137,41 @@ class ChatResponse(BaseModel):
     tokens_used: int = Field(description="Total tokens used")
     cost_usd: float = Field(description="Estimated cost in USD")
     processing_time_ms: float = Field(description="Processing time in milliseconds")
+
+
+# Streaming Chat Models
+class StreamEvent(BaseModel):
+    """Base streaming event."""
+
+    type: Literal["metadata", "content", "done", "error"]
+
+
+class MetadataEvent(StreamEvent):
+    """Metadata event with session info and sources."""
+
+    type: Literal["metadata"] = "metadata"
+    session_id: str = Field(description="Session identifier")
+    sources: List[SourceChunk] = Field(description="Source chunks retrieved")
+
+
+class ContentEvent(StreamEvent):
+    """Content delta event."""
+
+    type: Literal["content"] = "content"
+    delta: str = Field(description="Text delta to append")
+
+
+class DoneEvent(StreamEvent):
+    """Completion event with final statistics."""
+
+    type: Literal["done"] = "done"
+    tokens_used: int = Field(description="Total tokens used")
+    cost_usd: float = Field(description="Estimated cost in USD")
+    processing_time_ms: float = Field(description="Processing time in milliseconds")
+
+
+class ErrorEvent(StreamEvent):
+    """Error event."""
+
+    type: Literal["error"] = "error"
+    message: str = Field(description="Error message")
