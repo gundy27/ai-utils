@@ -4,7 +4,6 @@ import { useState } from "react";
 import NavigationDrawer from "@/components/NavigationDrawer";
 import ChatInterface from "@/components/ChatInterface";
 import DocumentsView from "@/components/DocumentsView";
-import AnalyticsView from "@/components/AnalyticsView";
 import SystemView from "@/components/SystemView";
 import { apiClient } from "@/lib/api";
 import {
@@ -20,15 +19,11 @@ export default function Home() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [totalCost, setTotalCost] = useState(0);
-  const [totalTokens, setTotalTokens] = useState(0);
   const [settings, setSettings] = useState<Settings>({
     model: "gpt-4o-mini",
     topK: 5,
     chunkMaxTokens: 512,
-    userId: "web_user",
-    systemPrompt:
-      "You are a helpful assistant. Answer questions based on the provided context. If the context doesn't contain relevant information, say so clearly.",
+    userId: "default_user",
   });
 
   const handleNewSession = () => {
@@ -84,7 +79,6 @@ export default function Home() {
         settings.topK,
         settings.model,
         true,
-        settings.systemPrompt,
       );
 
       const assistantMessage: Message = {
@@ -106,10 +100,6 @@ export default function Home() {
       setSessions(
         sessions.map((s) => (s.id === session.id ? finalSession : s)),
       );
-
-      // Update totals
-      setTotalCost((prev) => prev + response.cost_usd);
-      setTotalTokens((prev) => prev + response.tokens_used);
     } catch (error) {
       alert(`Chat failed: ${error}`);
     } finally {
@@ -130,10 +120,8 @@ export default function Home() {
       {/* Header */}
       <header className="bg-blue-600 text-white p-4 shadow-lg">
         <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">RAG Chatbot v1</h1>
-          <div className="text-sm">
-            Powered by gundy-ai • Extract → Chunk → Embed → Store → Chat
-          </div>
+          <h1 className="text-2xl font-bold">RAG Chatbot</h1>
+          <div className="text-sm">Powered by gundy-ai</div>
         </div>
       </header>
 
@@ -183,17 +171,6 @@ export default function Home() {
             <DocumentsView
               onUploadComplete={handleUploadComplete}
               userId={settings.userId}
-            />
-          )}
-
-          {currentView === "analytics" && (
-            <AnalyticsView
-              totalCost={totalCost}
-              totalTokens={totalTokens}
-              totalMessages={
-                currentSession?.messages.filter((m) => m.role === "assistant")
-                  .length || 0
-              }
             />
           )}
 

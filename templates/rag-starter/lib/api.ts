@@ -19,7 +19,7 @@ export class RAGAPIClient {
   async uploadDocument(
     file: File,
     metadata?: Record<string, any>,
-    userId: string = "web_user",
+    userId: string = "default_user",
   ): Promise<DocumentIngestResponse> {
     const formData = new FormData();
     formData.append("file", file);
@@ -42,11 +42,10 @@ export class RAGAPIClient {
   async chat(
     message: string,
     sessionId?: string,
-    userId: string = "web_user",
+    userId: string = "default_user",
     topK: number = 5,
     model: string = "gpt-4o-mini",
     includeSources: boolean = true,
-    systemPrompt?: string,
   ): Promise<ChatResponse> {
     const response = await fetch(`${this.baseUrl}/chat`, {
       method: "POST",
@@ -60,7 +59,6 @@ export class RAGAPIClient {
         top_k: topK,
         model,
         include_sources: includeSources,
-        system_prompt: systemPrompt,
       }),
     });
 
@@ -137,7 +135,7 @@ export class RAGAPIClient {
     return response.json();
   }
 
-  async listDocuments(userId: string = "web_user"): Promise<any> {
+  async listDocuments(userId: string = "default_user"): Promise<any> {
     const response = await fetch(`${this.baseUrl}/documents?user_id=${userId}`);
 
     if (!response.ok) {

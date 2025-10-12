@@ -25,7 +25,6 @@ export default function NavigationDrawer({
   const menuItems = [
     { id: "chat" as ViewType, label: "Chat", icon: "💬" },
     { id: "documents" as ViewType, label: "Documents", icon: "📄" },
-    { id: "analytics" as ViewType, label: "Analytics", icon: "📊" },
     { id: "system" as ViewType, label: "System", icon: "⚙️" },
   ];
 

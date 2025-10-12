@@ -49,14 +49,13 @@ export interface Stats {
   embedding_dimensions: number;
 }
 
-export type ViewType = "chat" | "documents" | "analytics" | "system";
+export type ViewType = "chat" | "documents" | "system";
 
 export interface Settings {
   model: string;
   topK: number;
   chunkMaxTokens: number;
   userId: string;
-  systemPrompt: string;
 }
 
 export interface HealthStatus {

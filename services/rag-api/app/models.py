@@ -125,29 +125,6 @@ class SourceChunk(BaseModel):
     text: Optional[str] = Field(default=None, description="Chunk text")
 
 
-class ToolCall(BaseModel):
-    """Tool call action from LLM."""
-
-    tool: str = Field(description="Tool name")
-    action: str = Field(description="Action type: link, form, etc.")
-    url: Optional[str] = Field(default=None, description="Action URL")
-    text: str = Field(description="Action button text")
-    data: Optional[Dict[str, Any]] = Field(default=None, description="Additional data")
-
-
-class LeadCapturePrompt(BaseModel):
-    """Lead capture prompt details."""
-
-    should_capture: bool = Field(description="Whether to show lead capture form")
-    interest_level: str = Field(
-        description="Detected interest level: low, medium, high"
-    )
-    trigger: str = Field(description="Reason for triggering lead capture")
-    message: Optional[str] = Field(
-        default=None, description="Message to show with lead form"
-    )
-
-
 class ChatResponse(BaseModel):
     """Response from chat."""
 
@@ -160,29 +137,3 @@ class ChatResponse(BaseModel):
     tokens_used: int = Field(description="Total tokens used")
     cost_usd: float = Field(description="Estimated cost in USD")
     processing_time_ms: float = Field(description="Processing time in milliseconds")
-    tool_calls: List[ToolCall] = Field(
-        default_factory=list, description="Tool calls from LLM"
-    )
-    lead_capture: Optional[LeadCapturePrompt] = Field(
-        default=None, description="Lead capture prompt if triggered"
-    )
-
-
-# Lead Capture Models
-class LeadCaptureRequest(BaseModel):
-    """Request to capture a lead."""
-
-    session_id: str = Field(description="Session identifier")
-    email: Optional[str] = Field(default=None, description="Lead email")
-    name: Optional[str] = Field(default=None, description="Lead name")
-    company: Optional[str] = Field(default=None, description="Company name")
-    role: Optional[str] = Field(default=None, description="Job role/title")
-    interest_level: str = Field(default="medium", description="Interest level")
-
-
-class LeadCaptureResponse(BaseModel):
-    """Response from lead capture."""
-
-    lead_id: str = Field(description="Created lead identifier")
-    session_id: str = Field(description="Session identifier")
-    message: str = Field(description="Success message")

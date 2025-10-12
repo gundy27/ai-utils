@@ -1,0 +1,263 @@
+# RAG Starter Template
+
+A production-ready starting point for building RAG (Retrieval-Augmented Generation) applications using the gundy-ai library ecosystem.
+
+## What's Included
+
+This template provides:
+
+- ✅ Document upload and processing (TXT, PDF, DOCX)
+- ✅ Vector-based semantic search
+- ✅ Chat interface with conversation history
+- ✅ Source attribution and citations
+- ✅ Session management
+- ✅ System configuration UI
+- ✅ Document management (list, delete)
+- ✅ Health monitoring
+
+## Prerequisites
+
+- Node.js >= 18
+- Python >= 3.11
+- OpenAI API key (or another LLM provider)
+
+## Quick Start
+
+### 1. Setup Backend API
+
+```bash
+# Navigate to the RAG API service
+cd ../../services/rag-api
+
+# Copy environment template
+cp env.example .env
+
+# Add your API key to .env
+echo "OPENAI_API_KEY=sk-..." >> .env
+
+# Install dependencies
+poetry install
+
+# Start the backend
+poetry run uvicorn app.main:app --reload --port 8000
+```
+
+### 2. Setup Frontend
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Visit application
+open http://localhost:3000
+```
+
+## Configuration
+
+### Backend Configuration
+
+Edit `services/rag-api/.env`:
+
+```bash
+OPENAI_API_KEY=your_key_here
+EMBEDDING_MODEL=text-embedding-3-small
+DEFAULT_CHAT_MODEL=gpt-4o-mini
+VECTOR_DB_PATH=./vector_db
+METADATA_DB_URL=sqlite+aiosqlite:///./metadata.db
+```
+
+### Frontend Configuration
+
+Edit `.env.local` (create if it doesn't exist):
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+## Customization Guide
+
+### 1. Branding & Styling
+
+Update the header in `app/page.tsx`:
+
+```tsx
+<h1 className="text-2xl font-bold">Your App Name</h1>
+```
+
+Modify Tailwind colors in `tailwind.config.js` to match your brand.
+
+### 2. User Management
+
+The template includes a simple `userId` field for basic multi-tenancy. To add full authentication:
+
+1. Use the existing `services/auth-secrets-service` from ai-utils
+2. Add authentication middleware to the backend
+3. Update frontend to include auth tokens in API calls
+
+### 3. Advanced Features
+
+Consider adding:
+
+- **Streaming responses**: Implement `/chat/stream` endpoint
+- **Multi-modal support**: Add image/audio processing
+- **Custom chunking strategies**: Extend the chunker library
+- **Additional file types**: Add parsers for HTML, Excel, etc.
+- **Advanced analytics**: Track user behavior and system performance
+- **Custom system prompts**: Add prompt management UI
+
+### 4. Deployment
+
+#### Backend Deployment
+
+```bash
+# Build Docker image
+cd services/rag-api
+docker build -t your-rag-api .
+
+# Run with Docker Compose
+docker-compose up -d
+```
+
+#### Frontend Deployment
+
+```bash
+# Build for production
+npm run build
+
+# Deploy to Vercel, Netlify, or your platform of choice
+```
+
+#### Production Checklist
+
+- [ ] Use PostgreSQL instead of SQLite
+- [ ] Add Redis for job queue
+- [ ] Enable HTTPS/TLS
+- [ ] Set up monitoring and logging
+- [ ] Configure rate limiting
+- [ ] Add backup/restore procedures
+- [ ] Review security settings
+
+## Architecture
+
+### Components
+
+```
+templates/rag-starter/
+├── app/                    # Next.js app router
+│   ├── page.tsx           # Main application
+│   ├── layout.tsx         # Root layout
+│   └── globals.css        # Global styles
+├── components/            # React components
+│   ├── ChatInterface.tsx  # Chat UI
+│   ├── DocumentsView.tsx  # Document management
+│   ├── NavigationDrawer.tsx # Main navigation
+│   └── SystemView.tsx     # Settings and health
+├── lib/                   # Shared utilities
+│   ├── api.ts             # API client
+│   └── types.ts           # TypeScript types
+└── README.md              # This file
+```
+
+### gundy-ai Libraries Used
+
+This template integrates:
+
+1. `gundy-ai-extractors` - Document parsing (TXT, PDF, DOCX)
+2. `gundy-ai-chunker` - Token-aware text chunking
+3. `gundy-ai-embeddings` - Embedding generation (OpenAI, etc.)
+4. `gundy-ai-vectorstore` - Vector database (ChromaDB, FAISS)
+5. `gundy-ai-metadata-store` - Session and document metadata
+6. `gundy-ai-openai-wrapper` - LLM client wrapper
+
+See individual library READMEs for detailed documentation.
+
+## Usage
+
+### Upload Documents
+
+1. Navigate to the "Documents" view
+2. Click or drag-and-drop files
+3. Wait for processing to complete
+4. Documents are automatically chunked, embedded, and stored
+
+### Chat
+
+1. Go to "Chat" view or click "New Chat"
+2. Ask questions about your uploaded documents
+3. View source citations with similarity scores
+4. Continue multi-turn conversations
+
+### System Settings
+
+1. Open "System" view
+2. Adjust:
+   - Language model (GPT-4o-mini, GPT-4o, etc.)
+   - Context chunks (top_k)
+   - User ID (for multi-tenancy testing)
+3. Monitor system health and statistics
+
+## Troubleshooting
+
+### Backend not starting
+
+- Check that your `OPENAI_API_KEY` is valid
+- Ensure port 8000 is available
+- Review backend logs for errors
+
+### Frontend can't connect to backend
+
+- Verify backend is running on `http://localhost:8000`
+- Check CORS settings in backend
+- Ensure `NEXT_PUBLIC_API_URL` is correct
+
+### Documents not appearing in chat
+
+- Verify documents uploaded successfully
+- Check backend logs for processing errors
+- Ensure `user_id` matches between upload and chat
+
+### No search results
+
+- Upload at least one document
+- Verify embeddings were generated successfully
+- Check vector store is initialized
+
+## Development
+
+```bash
+# Run with hot reload
+npm run dev
+
+# Type checking
+npm run type-check
+
+# Linting
+npm run lint
+
+# Build for production
+npm run build
+
+# Start production server
+npm run start
+```
+
+## Next Steps
+
+1. **Customize the UI**: Update branding, colors, and layout
+2. **Add Authentication**: Integrate with auth provider
+3. **Enhance Features**: Add streaming, multi-modal, etc.
+4. **Deploy**: Follow the deployment guide above
+5. **Monitor**: Set up logging, metrics, and alerts
+
+## Getting Help
+
+- **ai-utils Documentation**: See `/docs/` in the main repository
+- **Library READMEs**: Check individual `libs/` directories
+- **Issues**: Open an issue in the ai-utils repository
+
+## License
+
+See main ai-utils repository.
