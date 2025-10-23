@@ -1,0 +1,127 @@
+graph TB
+    subgraph "Client Layer"
+        USER[User/Client]
+        WEB[Web App]
+        API_CLIENT[API Client]
+    end
+
+    subgraph "FastAPI Service"
+        MAIN[Main App]
+        INGEST_EP[POST /documents/ingest]
+        SEARCH_EP[POST /search]
+        CHAT_EP[POST /chat]
+        STREAM_EP[POST /chat/stream]
+        HEALTH_EP[GET /health]
+        DELETE_EP[DELETE /documents/:id]
+    end
+
+    subgraph "RAG Pipeline Core"
+        PIPELINE[RAGPipeline]
+        
+        subgraph "Document Ingestion Flow"
+            PARSE[Parser Registry<br/>TXT/PDF/DOCX]
+            CHUNK[Token-Aware Chunker<br/>max: 512 tokens, overlap: 50]
+            EMBED[OpenAI Embeddings<br/>text-embedding-3-small]
+            STORE[ChromaDB Vector Store]
+            META[Metadata Store<br/>SQLite/AsyncIO]
+        end
+        
+        subgraph "Query Flow"
+            Q_EMBED[Query Embedding<br/>OpenAI]
+            VECTOR_SEARCH[Vector Similarity<br/>Search top-k]
+            CTX_BUILD[Context Builder<br/>Format sources]
+            HISTORY[Conversation History<br/>Last 6 messages]
+            LLM[OpenAI LLM<br/>gpt-4o-mini]
+        end
+    end
+
+    subgraph "gundy-ai Libraries"
+        LIB_EXTRACT[gundy-ai-extractors<br/>Document Parsing]
+        LIB_CHUNK[gundy-ai-chunker<br/>Text Chunking]
+        LIB_EMBED[gundy-ai-embeddings<br/>Vector Generation]
+        LIB_VECTOR[gundy-ai-vectorstore<br/>ChromaDB Adapter]
+        LIB_META[gundy-ai-metadata-store<br/>Session & Doc Tracking]
+        LIB_LLM[gundy-ai-llm<br/>OpenAI Wrapper]
+    end
+
+    subgraph "Data Storage"
+        VECTOR_DB[(ChromaDB<br/>Vector Store<br/>./vector_db)]
+        META_DB[(SQLite<br/>Metadata<br/>./metadata.db)]
+    end
+
+    subgraph "External Services"
+        OPENAI[OpenAI API<br/>Embeddings + LLM]
+    end
+
+    %% Client connections
+    USER --> WEB
+    USER --> API_CLIENT
+    WEB --> MAIN
+    API_CLIENT --> MAIN
+
+    %% Main routing
+    MAIN --> INGEST_EP
+    MAIN --> SEARCH_EP
+    MAIN --> CHAT_EP
+    MAIN --> STREAM_EP
+    MAIN --> HEALTH_EP
+    MAIN --> DELETE_EP
+
+    %% Ingestion flow
+    INGEST_EP --> PIPELINE
+    PIPELINE --> PARSE
+    PARSE --> CHUNK
+    CHUNK --> EMBED
+    EMBED --> STORE
+    STORE --> META
+
+    %% Query/Chat flow
+    SEARCH_EP --> PIPELINE
+    CHAT_EP --> PIPELINE
+    STREAM_EP --> PIPELINE
+    PIPELINE --> Q_EMBED
+    Q_EMBED --> VECTOR_SEARCH
+    VECTOR_SEARCH --> CTX_BUILD
+    META --> HISTORY
+    HISTORY --> CTX_BUILD
+    CTX_BUILD --> LLM
+
+    %% Delete flow
+    DELETE_EP --> PIPELINE
+    PIPELINE --> META
+    META -.-> STORE
+
+    %% Library connections
+    PARSE -.uses.-> LIB_EXTRACT
+    CHUNK -.uses.-> LIB_CHUNK
+    EMBED -.uses.-> LIB_EMBED
+    Q_EMBED -.uses.-> LIB_EMBED
+    STORE -.uses.-> LIB_VECTOR
+    VECTOR_SEARCH -.uses.-> LIB_VECTOR
+    META -.uses.-> LIB_META
+    LLM -.uses.-> LIB_LLM
+
+    %% Storage connections
+    STORE --> VECTOR_DB
+    META --> META_DB
+    VECTOR_SEARCH --> VECTOR_DB
+
+    %% External API calls
+    EMBED --> OPENAI
+    Q_EMBED --> OPENAI
+    LLM --> OPENAI
+
+    %% Styling with larger text and black color
+    classDef client fill:#87ceeb,stroke:#000,stroke-width:3px,color:#000,font-size:16px,font-weight:bold
+    classDef api fill:#ffa500,stroke:#000,stroke-width:3px,color:#000,font-size:16px,font-weight:bold
+    classDef pipeline fill:#dda0dd,stroke:#000,stroke-width:3px,color:#000,font-size:16px,font-weight:bold
+    classDef library fill:#90ee90,stroke:#000,stroke-width:3px,color:#000,font-size:16px,font-weight:bold
+    classDef storage fill:#ffb6c1,stroke:#000,stroke-width:3px,color:#000,font-size:16px,font-weight:bold
+    classDef external fill:#ffff99,stroke:#000,stroke-width:3px,color:#000,font-size:16px,font-weight:bold
+
+    class USER,WEB,API_CLIENT client
+    class MAIN,INGEST_EP,SEARCH_EP,CHAT_EP,STREAM_EP,HEALTH_EP,DELETE_EP api
+    class PIPELINE,PARSE,CHUNK,EMBED,STORE,META,Q_EMBED,VECTOR_SEARCH,CTX_BUILD,HISTORY,LLM pipeline
+    class LIB_EXTRACT,LIB_CHUNK,LIB_EMBED,LIB_VECTOR,LIB_META,LIB_LLM library
+    class VECTOR_DB,META_DB storage
+    class OPENAI external

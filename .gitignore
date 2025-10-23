@@ -10,6 +10,15 @@
 __pycache__/
 *.py[cod]
 
+# Test coverage
+.coverage
+**/.coverage
+htmlcov/
+.pytest_cache/
+
+# macOS
+.DS_Store
+
 services/rag-api/vector_db/
 services/rag-api/metadata.db
 services/rag-api/.env
