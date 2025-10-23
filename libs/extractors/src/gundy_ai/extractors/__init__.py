@@ -44,3 +44,11 @@ if find_spec("docx") is not None:
         __all__.append("DOCXParser")
     except ImportError:
         pass
+
+if find_spec("bs4") is not None and find_spec("httpx") is not None:
+    try:
+        from .parsers import HTMLParser  # noqa: F401
+
+        __all__.append("HTMLParser")
+    except ImportError:
+        pass

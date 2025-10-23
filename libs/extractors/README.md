@@ -39,11 +39,12 @@ for chunk in chunks:
 
 ## Supported File Types
 
-| Format | Extensions            | Status       | Notes                     |
-| ------ | --------------------- | ------------ | ------------------------- |
-| Text   | .txt, .md, .csv, .log | ✅ Supported | Full file as single chunk |
-| PDF    | .pdf                  | ✅ Supported | One chunk per page        |
-| DOCX   | .docx                 | ✅ Supported | Paragraphs and table rows |
+| Format | Extensions            | Status       | Notes                          |
+| ------ | --------------------- | ------------ | ------------------------------ |
+| Text   | .txt, .md, .csv, .log | ✅ Supported | Full file as single chunk      |
+| PDF    | .pdf                  | ✅ Supported | One chunk per page             |
+| DOCX   | .docx                 | ✅ Supported | Paragraphs and table rows      |
+| HTML   | .html, .htm           | ✅ Supported | Structured content + plaintext |
 
 ## Architecture
 
@@ -85,6 +86,105 @@ class BaseParser(ABC):
 - `supported_types`: List of file extensions
 - `dependencies`: Required packages
 
+## HTML Parser
+
+The HTML parser extracts structured content from HTML files and web pages.
+
+### Features
+
+- **File and URL support**: Parse local HTML files or fetch from URLs
+- **Structured extraction**: Title, headings (H1-H6), paragraphs, links, metadata
+- **Metadata extraction**: Meta tags, Open Graph, Twitter Cards
+- **Plaintext conversion**: Utility to extract clean plaintext
+- **Forgiving parser**: Handles malformed HTML gracefully
+- **Fast**: <500ms for typical web pages (<1MB)
+
+### Basic Usage
+
+```python
+from gundy_ai.extractors import ParserRegistry, HTMLParser
+
+# Parse local HTML file
+registry = ParserRegistry()
+registry.register(HTMLParser())
+parser = registry.get_parser(".html")
+chunks = parser.parse("document.html")
+
+# Parse from URL
+chunks = parser.parse("https://example.com")
+
+# Disable link extraction
+parser = HTMLParser(extract_links=False)
+chunks = parser.parse("document.html")
+```
+
+### Chunk Types
+
+Each chunk has a `type` in metadata for filtering:
+
+```python
+# Get only paragraphs
+paragraphs = [c for c in chunks if c.metadata.get("type") == "paragraph"]
+
+# Get only headings
+headings = [c for c in chunks if c.metadata.get("type") == "heading"]
+
+# Get metadata
+meta = [c for c in chunks if c.metadata.get("type") == "metadata"]
+```
+
+Available types:
+
+- `title`: Page title
+- `heading`: H1-H6 headings (includes `level` field)
+- `paragraph`: Paragraph content
+- `link`: Links with `href` in metadata (if enabled)
+- `metadata`: Document metadata (description, keywords, og tags, etc.)
+
+### Plaintext Extraction
+
+Convert HTML to clean plaintext:
+
+```python
+from gundy_ai.extractors.parsers.html_utils import extract_plaintext
+
+html = "<html><body><p>Hello world</p></body></html>"
+text = extract_plaintext(html)
+print(text)  # "Hello world"
+
+# Preserve link URLs
+text = extract_plaintext(html, preserve_links=True)
+```
+
+### URL Fetching
+
+The parser automatically detects URLs and fetches content:
+
+```python
+parser = HTMLParser(timeout=60)  # Custom timeout
+chunks = parser.parse("https://example.com/article")
+```
+
+Requirements: `httpx>=0.25,<1.0`
+
+### Metadata Extraction
+
+The parser extracts metadata from HTML:
+
+- Standard meta tags (description, keywords, author)
+- Open Graph tags (og:title, og:description, og:image, etc.)
+- Twitter Card tags (twitter:card, twitter:title, etc.)
+
+Access metadata from the metadata chunk:
+
+```python
+metadata_chunks = [c for c in chunks if c.metadata.get("type") == "metadata"]
+if metadata_chunks:
+    meta = metadata_chunks[0]
+    description = meta.metadata.get("description")
+    og_title = meta.metadata.get("og_title")
+```
+
 ## Audit Logging
 
 All extraction operations emit audit events:
@@ -121,7 +221,8 @@ poetry run pytest tests/test_registry.py -v
 See `examples/` directory for:
 
 - `basic_usage.py`: Simple TXT extraction example
-- `all_parsers.py`: Demonstrates all three parsers (TXT, PDF, DOCX)
+- `all_parsers.py`: Demonstrates all parsers (TXT, PDF, DOCX, HTML)
+- `html_parsing.py`: HTML parser with URL fetching and plaintext extraction
 - `batch_processing.py`: Process multiple documents
 - `custom_parser.py`: How to create your own custom parser
 
@@ -161,6 +262,8 @@ class MyParser(BaseParser):
 - structlog >=23.2,<25.0
 - pypdf >=3.0,<5.0 (for PDF support)
 - python-docx >=1.0,<2.0 (for DOCX support)
+- beautifulsoup4 >=4.12,<5.0 (for HTML support)
+- httpx >=0.25,<1.0 (for HTML URL fetching)
 
 ## License
 

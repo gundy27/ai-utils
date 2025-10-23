@@ -23,9 +23,7 @@ def test_chat_stream_mocks_openai(monkeypatch):
 
         client = OpenAIClient()
         chunks = list(
-            client.chat_stream(
-                model="gpt-4o-mini", messages=[{"role": "user", "content": "h"}]
-            )
+            client.chat_stream(model="gpt-4o-mini", messages=[{"role": "user", "content": "h"}])
         )
         assert "hi" in "".join(chunks)
 
