@@ -3,13 +3,16 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Generator, Iterable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import backoff
 import httpx
 import structlog
 from dotenv import load_dotenv
 from openai import APIConnectionError, APIError, OpenAI, RateLimitError, Timeout
+
+if TYPE_CHECKING:
+    from backoff._typing import Details
 
 logger = structlog.get_logger(__name__)
 
@@ -73,13 +76,13 @@ class OpenAIClient:
             isinstance(exc, APIError) and (500 <= getattr(exc, "status_code", 500) < 600)
         )
 
-    def _backoff_handler(self, details: dict[str, Any]) -> None:
+    def _backoff_handler(self, details: Details) -> None:
         wait = details.get("wait")
         tries = details.get("tries")
         exc = details.get("exception")
         logger.warning("openai_client.retry", tries=tries, wait=wait, error=str(exc))
 
-    def _giveup_handler(self, details: dict[str, Any]) -> None:
+    def _giveup_handler(self, details: Details) -> None:
         tries = details.get("tries")
         exc = details.get("exception")
         logger.error("openai_client.giveup", tries=tries, error=str(exc))
