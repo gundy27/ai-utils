@@ -69,8 +69,7 @@ class OpenAIClient:
     @staticmethod
     def _is_retryable(exc: Exception) -> bool:
         return isinstance(exc, (RateLimitError, APIConnectionError, Timeout)) or (
-            isinstance(exc, APIError)
-            and (500 <= getattr(exc, "status_code", 500) < 600)
+            isinstance(exc, APIError) and (500 <= getattr(exc, "status_code", 500) < 600)
         )
 
     def _backoff_handler(self, details: dict[str, object]) -> None:
@@ -173,8 +172,6 @@ class OpenAIClient:
                         if text:
                             yield text
                     except Exception as e:  # defensive; ignore malformed chunks
-                        logger.warning(
-                            "openai_client.chat_stream.chunk_error", error=str(e)
-                        )
+                        logger.warning("openai_client.chat_stream.chunk_error", error=str(e))
 
         return _call()
