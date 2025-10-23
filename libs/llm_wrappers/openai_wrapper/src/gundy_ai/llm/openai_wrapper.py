@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 import time
 from collections.abc import Generator, Iterable
+from typing import Any
 
 import backoff
 import httpx
 import structlog
+from backoff import Details
 from dotenv import load_dotenv
 from openai import APIConnectionError, APIError, OpenAI, RateLimitError, Timeout
 
@@ -72,13 +74,13 @@ class OpenAIClient:
             isinstance(exc, APIError) and (500 <= getattr(exc, "status_code", 500) < 600)
         )
 
-    def _backoff_handler(self, details: dict[str, object]) -> None:
+    def _backoff_handler(self, details: Details) -> None:
         wait = details.get("wait")
         tries = details.get("tries")
         exc = details.get("exception")
         logger.warning("openai_client.retry", tries=tries, wait=wait, error=str(exc))
 
-    def _giveup_handler(self, details: dict[str, object]) -> None:
+    def _giveup_handler(self, details: Details) -> None:
         tries = details.get("tries")
         exc = details.get("exception")
         logger.error("openai_client.giveup", tries=tries, error=str(exc))
@@ -109,14 +111,19 @@ class OpenAIClient:
         def _call() -> str:
             start = time.time()
             logger.info("openai_client.chat.request", model=model)
-            resp = self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                top_p=top_p,
-                max_tokens=max_tokens,
-                **(extra or {}),
-            )
+
+            # Build kwargs with only non-None values
+            kwargs: dict[str, Any] = {"model": model, "messages": messages}
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            if top_p is not None:
+                kwargs["top_p"] = top_p
+            if max_tokens is not None:
+                kwargs["max_tokens"] = max_tokens
+            if extra:
+                kwargs.update(extra)
+
+            resp = self._client.chat.completions.create(**kwargs)
             duration = time.time() - start
             logger.info(
                 "openai_client.chat.response",
@@ -156,15 +163,19 @@ class OpenAIClient:
         )
         def _call() -> Generator[str, None, None]:
             logger.info("openai_client.chat_stream.request", model=model)
-            with self._client.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=temperature,
-                top_p=top_p,
-                max_tokens=max_tokens,
-                stream=True,
-                **(extra or {}),
-            ) as stream:
+
+            # Build kwargs with only non-None values
+            kwargs: dict[str, Any] = {"model": model, "messages": messages, "stream": True}
+            if temperature is not None:
+                kwargs["temperature"] = temperature
+            if top_p is not None:
+                kwargs["top_p"] = top_p
+            if max_tokens is not None:
+                kwargs["max_tokens"] = max_tokens
+            if extra:
+                kwargs.update(extra)
+
+            with self._client.chat.completions.create(**kwargs) as stream:
                 for event in stream:
                     try:
                         delta = event.choices[0].delta
