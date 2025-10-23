@@ -69,7 +69,7 @@ Below are the minimum platform components you should build or verify exist befor
 
 **Contract**:
 
-- `chunk(text, strategy={token_aware|fixed}, max_tokens, overlap) -> [chunks]`
+- `chunk(text, strategy={token_aware|fixed|semantic}, max_tokens, overlap) -> [chunks]`
 - Each chunk has: `id`, `text`, `token_count`, `metadata`
 
 **Guideline**: Prefer token-aware chunking by default; expose fixed-size for edge cases.
@@ -83,6 +83,13 @@ Below are the minimum platform components you should build or verify exist befor
 - 38 tests passing with 93% coverage
 - Performance: <1ms for small texts, ~50ms for 100K characters
 - Complete examples and API documentation
+
+**Planned Enhancement**: 
+- 📋 **SemanticChunker**: Requirements documented in `docs/semantic-chunking-requirements.md`
+  - Embedding-based similarity chunking for improved RAG quality
+  - Support for local (sentence-transformers) and remote (OpenAI) embeddings
+  - 7-week implementation plan with 6 phases
+  - Expected 15-20% improvement in RAG retrieval accuracy
 
 ## 2.4 Embedding Service (Provider-agnostic)
 
